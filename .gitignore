@@ -1,0 +1,23 @@
+# ===== Python =====
+venv/
+__pycache__/
+*.py[cod]
+.env
+
+# ===== Node / frontend =====
+node_modules/
+dist/
+.vite/
+
+# ===== ผลพลอยได้จากการเทรน =====
+# ไฟล์โมเดลใน backend/model/ ต้อง commit ขึ้น git (workflow ใช้ส่งโมเดลไป deploy)
+# แต่รูปกราฟกับ log ไม่ต้อง
+training/plots/
+training/*.png
+*.log
+
+# ===== ระบบปฏิบัติการ / เครื่องมือ =====
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

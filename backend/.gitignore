@@ -1,0 +1,10 @@
+# Environment
+.env
+
+venv/
+# Python
+__pycache__/
+*.pyc
+
+# Models (ถ้าไฟล์ใหญ่เกิน 100MB)
+# model/*.keras

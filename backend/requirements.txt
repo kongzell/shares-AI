@@ -1,0 +1,34 @@
+# dependency ของ backend (API ที่ deploy ขึ้น server)
+# สร้างจากรายการ import จริงในโค้ด ไม่ใช่ pip freeze ทั้ง venv
+# ของที่ใช้เฉพาะตอนเทรน (matplotlib, scikit-learn) อยู่ใน training/requirements-train.txt
+
+# ===== เว็บเซิร์ฟเวอร์ =====
+fastapi==0.141.1
+uvicorn[standard]==0.52.1
+pydantic==2.13.4
+
+# ===== ฐานข้อมูล =====
+SQLAlchemy==2.0.51
+psycopg2-binary==2.9.12      # ไดรเวอร์ Postgres สำหรับ DATABASE_URL
+python-dotenv==1.2.2
+
+# ===== ยืนยันตัวตน =====
+python-jose[cryptography]==3.5.0   # สร้าง/ตรวจ JWT
+passlib==1.7.4                     # เข้ารหัสรหัสผ่าน
+bcrypt==4.0.1                      # อัลกอริทึมที่ passlib เรียกใช้
+
+# ===== ข้อมูลหุ้น =====
+yfinance==1.5.2
+pandas==3.0.5
+
+# ===== โมเดลพยากรณ์ =====
+# tensorflow เป็นตัวที่หนักที่สุด (~1.4 GB) และเป็นเหตุผลที่ deploy บน
+# free tier ที่ให้ RAM 512 MB ไม่ได้ ถ้าต้องย้ายไปแพลตฟอร์มที่ RAM น้อย
+# ต้องแปลงโมเดลเป็น ONNX แล้วเปลี่ยน 3 บรรทัดนี้เป็น onnxruntime แทน
+tensorflow==2.21.0
+keras-tcn==3.5.6             # เลเยอร์ TCN ที่ tcn_model.keras ต้องใช้ตอนโหลด
+joblib==1.5.3                # ใช้โหลด xgboost_model.pkl
+# xgboost_model.pkl เป็น object ชนิด xgboost.sklearn.XGBRegressor
+# joblib อย่างเดียวโหลดไม่ได้ ต้องมีแพ็กเกจนี้ด้วยไม่งั้น API พังตอน start
+# (ทดสอบแล้วว่าไม่ต้องมี scikit-learn เพราะ xgboost มี fallback ให้)
+xgboost==3.4.0

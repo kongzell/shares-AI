@@ -1,0 +1,11 @@
+# dependency สำหรับเทรนโมเดลเท่านั้น (รันบน GitHub Actions)
+# แยกจาก requirements.txt ของ backend เพราะฝั่ง deploy ไม่ควรมี TensorFlow ติดไปด้วย
+tensorflow==2.21.0
+keras==3.15.1
+keras-tcn==3.5.6
+xgboost==3.4.0
+scikit-learn==1.9.0
+pandas==3.0.5
+numpy==2.5.1
+yfinance==1.5.2
+joblib==1.5.3
