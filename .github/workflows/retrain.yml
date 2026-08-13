@@ -1,4 +1,4 @@
-name: เทรนโมเดลอัตโนมัติรายสัปดาห์
+name: Weekly Model Retraining
 
 on:
   schedule:
@@ -19,41 +19,41 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: ดึงโค้ดจาก repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: ติดตั้ง Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
           cache: pip
 
-      - name: ติดตั้ง dependency สำหรับเทรน
+      - name: Install training dependencies
         run: pip install -r training/requirements-train.txt
 
       # เทรนอยู่ใน training/ แต่เซฟโมเดลไปที่ backend/model/ ซึ่งเป็นที่ที่ API อ่าน
-      - name: เทรนโมเดลใหม่
+      - name: Train models
         run: python training/train.py --out backend/model
 
       # ด่านกันของเสีย — ถ้าโมเดลใหม่แย่กว่าเกณฑ์ step นี้จะ exit 1
       # workflow จะหยุดตรงนี้ ไม่ commit ทับของเดิม เว็บที่ deploy อยู่จึงปลอดภัย
-      - name: ตรวจคุณภาพโมเดลก่อนนำไปใช้
+      - name: Validate models before deploy
         run: python training/validate_model.py --model-dir backend/model
 
-      - name: commit โมเดลกลับเข้า repo
+      - name: Commit updated models
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add backend/model
           if git diff --staged --quiet; then
-            echo "โมเดลไม่เปลี่ยนแปลง ข้ามการ commit"
+            echo "No model changes, skipping commit"
           else
-            git commit -m "retrain: อัปเดตโมเดลอัตโนมัติ $(date -u +%Y-%m-%d)"
+            git commit -m "retrain: update models $(date -u +%Y-%m-%d)"
             git push
           fi
 
       # เก็บไฟล์โมเดลไว้ดูย้อนหลัง 90 วัน เผื่อต้องเทียบว่าเวอร์ชันไหนดีกว่า
-      - name: เก็บโมเดลเป็น artifact
+      - name: Upload models as artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
