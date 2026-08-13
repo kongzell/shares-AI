@@ -1,9 +1,9 @@
 {
-  "trained_at": "2026-08-11",
+  "trained_at": "2026-08-13",
   "data_start": "2022-01-01",
-  "data_end": "2026-08-12",
+  "data_end": "2026-08-14",
   "split_mode": "by-time",
-  "split_cutoff": "2025-09-17",
+  "split_cutoff": "2025-09-18",
   "symbols": [
     "AAPL",
     "MSFT",
@@ -19,20 +19,20 @@
   "seed": 42,
   "metrics": {
     "lstm": {
-      "mae_percent": 2.197957980312175,
-      "direction_accuracy": 50.11742602160639
+      "mae_percent": 2.1943708556353743,
+      "direction_accuracy": 49.88301357042583
     },
     "gru": {
-      "mae_percent": 2.1988976944332115,
-      "direction_accuracy": 50.11742602160639
+      "mae_percent": 2.1953254050697155,
+      "direction_accuracy": 49.55545156761816
     },
     "tcn": {
-      "mae_percent": 2.4378898620150578,
-      "direction_accuracy": 48.75528417097229
+      "mae_percent": 2.3934019876311283,
+      "direction_accuracy": 51.42723444080487
     },
     "xgboost": {
-      "mae_percent": 2.263153414788936,
-      "direction_accuracy": 48.567402536402064
+      "mae_percent": 2.2572386790117784,
+      "direction_accuracy": 49.22788956481048
     }
   }
 }
