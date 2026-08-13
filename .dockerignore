@@ -1,0 +1,32 @@
+# Docker ไม่ได้อ่าน .gitignore ต้องระบุซ้ำที่นี่
+# ถ้าไม่มีไฟล์นี้ คำสั่ง COPY backend/ จะลาก venv 2 GB และ .env ที่มีความลับเข้า image
+
+# ===== ความลับ ห้ามเข้า image เด็ดขาด =====
+.env
+**/.env
+*.pem
+*.key
+
+# ===== virtualenv และแคชของ Python =====
+# image ติดตั้ง dependency ใหม่จาก requirements.txt อยู่แล้ว ไม่ต้องใช้ของเครื่องเรา
+**/venv/
+**/__pycache__/
+**/*.py[cod]
+
+# ===== ส่วนที่ไม่เกี่ยวกับ backend =====
+# หน้าเว็บ deploy แยกที่ Cloudflare Pages ส่วนสคริปต์เทรนรันบน GitHub Actions
+frontend/
+training/
+.github/
+
+# ===== git และเครื่องมือ =====
+.git/
+.gitignore
+.claude/
+.vscode/
+.idea/
+
+# ===== อื่น ๆ =====
+*.log
+.DS_Store
+Thumbs.db
