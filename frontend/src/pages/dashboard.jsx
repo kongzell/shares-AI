@@ -11,7 +11,7 @@ import {
 } from "../api";
 import "../App.css";
 
-const API_URL = "http://localhost:8000";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const QUICK_STOCKS = [
   "AAPL",   // Apple
   "MSFT",   // Microsoft

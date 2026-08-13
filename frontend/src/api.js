@@ -1,6 +1,8 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:8000";
+// ตอน build บน Cloudflare Pages ให้ตั้ง VITE_API_URL เป็นโดเมนของ backend
+// ถ้าไม่ได้ตั้ง จะชี้ไปที่ backend บนเครื่องตัวเองสำหรับตอนพัฒนา
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const api = axios.create({ baseURL: API_URL });
 
