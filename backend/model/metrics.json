@@ -19,20 +19,20 @@
   "seed": 42,
   "metrics": {
     "lstm": {
-      "mae_percent": 2.1943708556353743,
-      "direction_accuracy": 49.88301357042583
+      "mae_percent": 2.2034321698852453,
+      "direction_accuracy": 49.39195509822264
     },
     "gru": {
-      "mae_percent": 2.1953254050697155,
-      "direction_accuracy": 49.55545156761816
+      "mae_percent": 2.199820368139011,
+      "direction_accuracy": 48.22263797942002
     },
     "tcn": {
-      "mae_percent": 2.3934019876311283,
-      "direction_accuracy": 51.42723444080487
+      "mae_percent": 2.365818523934438,
+      "direction_accuracy": 50.561272217025255
     },
     "xgboost": {
-      "mae_percent": 2.2572386790117784,
-      "direction_accuracy": 49.22788956481048
+      "mae_percent": 2.2530591607491672,
+      "direction_accuracy": 48.830682881197376
     }
   }
 }

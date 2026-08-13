@@ -26,7 +26,6 @@ os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 
 import pandas as pd  # noqa: E402
 import yfinance as yf  # noqa: E402
-import joblib  # noqa: E402
 import tensorflow as tf  # noqa: E402
 from tensorflow.keras.models import Sequential  # noqa: E402
 from tensorflow.keras.layers import Input, LSTM, GRU, Dense  # noqa: E402
@@ -204,13 +203,17 @@ def main():
     xgb = XGBRegressor(n_estimators=100, max_depth=5, learning_rate=0.1,
                        random_state=SEED)
     xgb.fit(Xtr_t, ytr_t)
-    joblib.dump(xgb, out_dir / "xgboost_model.pkl")
+    # ใช้ save_model ของ XGBoost ไม่ใช่ joblib/pickle
+    # เพราะ pickle ของ XGBoost ย้ายข้ามแพลตฟอร์มไม่ได้ โมเดลที่ pickle บน Linux
+    # (GitHub Actions) จะโหลดบน Windows ไม่ได้ ขึ้น "input stream corrupted"
+    # ส่วนรูปแบบ .json เป็นรูปแบบมาตรฐานของ XGBoost ที่ใช้ข้ามเครื่องได้
+    xgb.save_model(out_dir / "xgboost_model.json")
 
     pred = xgb.predict(Xte_t)
     metrics["xgboost"] = {"mae_percent": mae_percent(yte_t, pred),
                           "direction_accuracy": direction_accuracy(yte_t, pred)}
     print(f"XGBoost: MAE {metrics['xgboost']['mae_percent']:.3f}%  "
-          f"ทายทิศทางถูก {metrics['xgboost']['direction_accuracy']:.1f}%  -> xgboost_model.pkl")
+          f"ทายทิศทางถูก {metrics['xgboost']['direction_accuracy']:.1f}%  -> xgboost_model.json")
 
     # บันทึกผลไว้ให้ validate_model.py เทียบว่าโมเดลใหม่ดีขึ้นหรือแย่ลง
     report = {

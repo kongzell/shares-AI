@@ -27,8 +27,7 @@ pandas==3.0.5
 # ต้องแปลงโมเดลเป็น ONNX แล้วเปลี่ยน 3 บรรทัดนี้เป็น onnxruntime แทน
 tensorflow==2.21.0
 keras-tcn==3.5.6             # เลเยอร์ TCN ที่ tcn_model.keras ต้องใช้ตอนโหลด
-joblib==1.5.3                # ใช้โหลด xgboost_model.pkl
-# xgboost_model.pkl เป็น object ชนิด xgboost.sklearn.XGBRegressor
-# joblib อย่างเดียวโหลดไม่ได้ ต้องมีแพ็กเกจนี้ด้วยไม่งั้น API พังตอน start
+# โมเดล XGBoost เก็บเป็น .json ผ่าน save_model/load_model ของ xgboost เอง
+# ไม่ได้ใช้ pickle เพราะ pickle ของ XGBoost ย้ายข้ามแพลตฟอร์มไม่ได้
 # (ทดสอบแล้วว่าไม่ต้องมี scikit-learn เพราะ xgboost มี fallback ให้)
 xgboost==3.4.0
