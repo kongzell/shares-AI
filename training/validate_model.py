@@ -23,8 +23,8 @@ import numpy as np
 
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 
-import joblib  # noqa: E402
 import pandas as pd  # noqa: E402
+from xgboost import XGBRegressor  # noqa: E402
 from tensorflow.keras.models import load_model  # noqa: E402
 from tcn import TCN  # noqa: E402
 
@@ -83,14 +83,15 @@ def check_files_loadable(model_dir: Path):
             fail(f"{filename} ทำนายออกมาเป็น NaN หรือ inf")
         print(f"  {name:8s} โหลดได้ ทำนายได้ปกติ")
 
-    path = model_dir / "xgboost_model.pkl"
+    path = model_dir / "xgboost_model.json"
     if not path.exists():
-        fail("ไม่พบไฟล์ xgboost_model.pkl")
+        fail("ไม่พบไฟล์ xgboost_model.json")
     try:
-        xgb = joblib.load(path)
+        xgb = XGBRegressor()
+        xgb.load_model(path)
         out = xgb.predict(pd.DataFrame([[0.0, 0.0, 0.0, 0.0]], columns=XGB_FEATURES))
     except Exception as exc:
-        fail(f"โหลด xgboost_model.pkl ไม่ได้ หรือทำนายไม่ผ่าน: {exc}")
+        fail(f"โหลด xgboost_model.json ไม่ได้ หรือทำนายไม่ผ่าน: {exc}")
     if not np.isfinite(out).all():
         fail("xgboost ทำนายออกมาเป็น NaN หรือ inf")
     print("  xgboost  โหลดได้ ทำนายได้ปกติ")

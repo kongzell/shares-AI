@@ -3,7 +3,7 @@ from tensorflow.keras.models import load_model
 from pathlib import Path
 import yfinance as yf
 import pandas as pd
-import joblib
+from xgboost import XGBRegressor
 from tcn import TCN
 
 router = APIRouter(tags=["หุ้น"])
@@ -17,7 +17,11 @@ models = {
     "gru": load_model(MODEL_DIR / "gru_model.keras"),
     "tcn": load_model(MODEL_DIR / "tcn_model.keras"),
 }
-xgb_model = joblib.load(MODEL_DIR / "xgboost_model.pkl")
+# โหลดด้วย load_model ของ XGBoost ไม่ใช่ pickle
+# pickle ของ XGBoost ผูกกับแพลตฟอร์มที่สร้าง โมเดลที่เทรนบน Linux (GitHub Actions)
+# จะโหลดบน Windows ไม่ได้ ส่วนรูปแบบ .json ใช้ข้ามเครื่องได้
+xgb_model = XGBRegressor()
+xgb_model.load_model(MODEL_DIR / "xgboost_model.json")
 LOOKBACK = 30
 
 def get_currency(symbol: str) -> str:
