@@ -1,7 +1,7 @@
 {
-  "trained_at": "2026-08-16",
+  "trained_at": "2026-08-17",
   "data_start": "2022-01-01",
-  "data_end": "2026-08-17",
+  "data_end": "2026-08-18",
   "split_mode": "by-time",
   "split_cutoff": "2025-09-22",
   "symbols": [
@@ -19,19 +19,19 @@
   "seed": 42,
   "metrics": {
     "lstm": {
-      "mae_percent": 2.199854383408526,
-      "direction_accuracy": 48.993916705662144
+      "mae_percent": 2.200884750520816,
+      "direction_accuracy": 48.90032756200281
     },
     "gru": {
-      "mae_percent": 2.2089880666929393,
+      "mae_percent": 2.2089904818980663,
       "direction_accuracy": 49.04071127749181
     },
     "tcn": {
-      "mae_percent": 2.460146443757477,
-      "direction_accuracy": 48.38558727187646
+      "mae_percent": 2.426899962850169,
+      "direction_accuracy": 49.55545156761816
     },
     "xgboost": {
-      "mae_percent": 2.253082608173481,
+      "mae_percent": 2.253079494594366,
       "direction_accuracy": 50.44413277232351
     }
   }
