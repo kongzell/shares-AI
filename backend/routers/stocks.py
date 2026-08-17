@@ -1,10 +1,10 @@
 from fastapi import APIRouter, HTTPException
-from tensorflow.keras.models import load_model
 from pathlib import Path
+import numpy as np
 import yfinance as yf
 import pandas as pd
+import onnxruntime as ort
 from xgboost import XGBRegressor
-from tcn import TCN
 
 router = APIRouter(tags=["หุ้น"])
 
@@ -12,10 +12,17 @@ router = APIRouter(tags=["หุ้น"])
 BASE_DIR = Path(__file__).parent.parent
 MODEL_DIR = BASE_DIR / "model"
 
+# โหลดโมเดลผ่าน ONNX Runtime ไม่ใช่ TensorFlow
+# TensorFlow กิน 1.5 GB ซึ่งใหญ่เกินกว่าที่ free tier จะรับไหว ส่วน ONNX Runtime
+# กิน 43 MB และทำนายได้ผลเท่ากัน (ทดสอบแล้วต่างกันไม่เกิน 3.7e-08)
+# การเทรนยังใช้ TensorFlow เหมือนเดิม แต่เกิดบน GitHub Actions ที่ทรัพยากรเหลือเฟือ
 models = {
-    "lstm": load_model(MODEL_DIR / "multi_asset_lstm.keras"),
-    "gru": load_model(MODEL_DIR / "gru_model.keras"),
-    "tcn": load_model(MODEL_DIR / "tcn_model.keras"),
+    "lstm": ort.InferenceSession(str(MODEL_DIR / "multi_asset_lstm.onnx"),
+                                 providers=["CPUExecutionProvider"]),
+    "gru": ort.InferenceSession(str(MODEL_DIR / "gru_model.onnx"),
+                                providers=["CPUExecutionProvider"]),
+    "tcn": ort.InferenceSession(str(MODEL_DIR / "tcn_model.onnx"),
+                                providers=["CPUExecutionProvider"]),
 }
 # โหลดด้วย load_model ของ XGBoost ไม่ใช่ pickle
 # pickle ของ XGBoost ผูกกับแพลตฟอร์มที่สร้าง โมเดลที่เทรนบน Linux (GitHub Actions)
@@ -190,8 +197,11 @@ def predict_return(returns, model_name: str) -> float:
     แยกเป็นฟังก์ชันเพื่อเรียกซ้ำได้ ทั้งการทำนายวันถัดไปและการย้อนทำนายวันล่าสุด
     """
     if model_name in models:
-        last_seq = returns[-LOOKBACK:].reshape(1, LOOKBACK, 1)
-        return float(models[model_name].predict(last_seq, verbose=0)[0][0])
+        # ONNX Runtime รับ float32 เท่านั้น ต่างจาก Keras ที่แปลงให้เอง
+        last_seq = returns[-LOOKBACK:].reshape(1, LOOKBACK, 1).astype("float32")
+        session = models[model_name]
+        input_name = session.get_inputs()[0].name
+        return float(session.run(None, {input_name: last_seq})[0][0][0])
 
     if model_name == "xgboost":
         ret_series = pd.Series(returns)

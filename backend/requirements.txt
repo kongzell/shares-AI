@@ -22,11 +22,12 @@ yfinance==1.5.2
 pandas==3.0.5
 
 # ===== โมเดลพยากรณ์ =====
-# tensorflow เป็นตัวที่หนักที่สุด (~1.4 GB) และเป็นเหตุผลที่ deploy บน
-# free tier ที่ให้ RAM 512 MB ไม่ได้ ถ้าต้องย้ายไปแพลตฟอร์มที่ RAM น้อย
-# ต้องแปลงโมเดลเป็น ONNX แล้วเปลี่ยน 3 บรรทัดนี้เป็น onnxruntime แทน
-tensorflow==2.21.0
-keras-tcn==3.5.6             # เลเยอร์ TCN ที่ tcn_model.keras ต้องใช้ตอนโหลด
+# ใช้ ONNX Runtime แทน TensorFlow เพราะที่นี่ทำแค่ทำนาย ไม่ได้เทรน
+#   tensorflow + keras + clang = 1,512 MB   <- ใหญ่เกิน free tier
+#   onnxruntime                =    43 MB
+# การเทรนยังใช้ TensorFlow เหมือนเดิม แต่เกิดบน GitHub Actions ที่ทรัพยากรเหลือเฟือ
+# แล้วแปลงเป็น .onnx ก่อน commit (ดู training/train.py)
+onnxruntime==1.28.0
 # โมเดล XGBoost เก็บเป็น .json ผ่าน save_model/load_model ของ xgboost เอง
 # ไม่ได้ใช้ pickle เพราะ pickle ของ XGBoost ย้ายข้ามแพลตฟอร์มไม่ได้
 # (ทดสอบแล้วว่าไม่ต้องมี scikit-learn เพราะ xgboost มี fallback ให้)

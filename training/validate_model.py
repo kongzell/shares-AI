@@ -24,17 +24,22 @@ import numpy as np
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 
 import pandas as pd  # noqa: E402
+import onnxruntime as ort  # noqa: E402
 from xgboost import XGBRegressor  # noqa: E402
 from tensorflow.keras.models import load_model  # noqa: E402
 from tcn import TCN  # noqa: E402
 
 LOOKBACK = 30
 XGB_FEATURES = ["Return", "MA7", "MA30", "Prev_Return"]
-KERAS_MODELS = {
-    "lstm": "multi_asset_lstm.keras",
-    "gru": "gru_model.keras",
-    "tcn": "tcn_model.keras",
+# ตรวจทั้งคู่: .keras คือต้นฉบับ ส่วน .onnx คือตัวที่ backend ใช้จริง
+# ต้องเทียบกันด้วยเพื่อจับกรณีที่แปลงแล้วผลเพี้ยน
+SEQ_MODELS = {
+    "lstm": "multi_asset_lstm",
+    "gru": "gru_model",
+    "tcn": "tcn_model",
 }
+# ผลจาก ONNX ต้องต่างจากต้นฉบับไม่เกินค่านี้ (วัดจริงตอนทดสอบได้ราว 3.7e-08)
+ONNX_TOLERANCE = 1e-4
 # เพดานความคลาดเคลื่อนสัมบูรณ์ — ผลตอบแทนรายวันปกติไม่ควรเกินระดับนี้
 # ถ้าโมเดลทำนายเกินนี้แปลว่าเพี้ยนหนัก ไม่ใช่แค่แม่นน้อยลง
 SANITY_MAE_LIMIT = 10.0
@@ -68,20 +73,46 @@ def check_files_loadable(model_dir: Path):
     """โหลดโมเดลจริงและลองทำนายด้วยข้อมูลปลอม เพื่อยืนยันว่าไฟล์ไม่เสียและรูปร่าง input ตรง"""
     dummy_seq = np.zeros((1, LOOKBACK, 1), dtype="float32")
 
-    for name, filename in KERAS_MODELS.items():
-        path = model_dir / filename
-        if not path.exists():
-            fail(f"ไม่พบไฟล์โมเดล {filename}")
+    # ใช้ข้อมูลสุ่มที่มีสเกลใกล้เคียง return จริง แทนที่จะเป็นศูนย์ล้วน
+    # เพราะ input ศูนย์อาจบังผลเพี้ยนบางแบบไว้
+    rng = np.random.default_rng(0)
+    probe = rng.normal(0, 0.02, size=(8, LOOKBACK, 1)).astype("float32")
+
+    for name, stem in SEQ_MODELS.items():
+        keras_path = model_dir / f"{stem}.keras"
+        onnx_path = model_dir / f"{stem}.onnx"
+
+        if not onnx_path.exists():
+            fail(f"ไม่พบไฟล์ {onnx_path.name} — backend ใช้ไฟล์นี้ในการทำนาย")
+
+        # ตัวที่ backend ใช้จริงต้องโหลดได้และให้ค่าที่สมเหตุสมผล
         try:
-            model = load_model(path, custom_objects={"TCN": TCN})
-            out = model.predict(dummy_seq, verbose=0)
+            sess = ort.InferenceSession(str(onnx_path),
+                                        providers=["CPUExecutionProvider"])
+            out = sess.run(None, {sess.get_inputs()[0].name: probe})[0]
         except Exception as exc:
-            fail(f"โหลด {filename} ไม่ได้ หรือทำนายไม่ผ่าน: {exc}")
-        if np.shape(out) != (1, 1):
-            fail(f"{filename} คืนค่ารูปร่าง {np.shape(out)} ควรเป็น (1, 1)")
+            fail(f"โหลด {onnx_path.name} ไม่ได้ หรือทำนายไม่ผ่าน: {exc}")
+        if np.shape(out) != (len(probe), 1):
+            fail(f"{onnx_path.name} คืนค่ารูปร่าง {np.shape(out)} "
+                 f"ควรเป็น ({len(probe)}, 1)")
         if not np.isfinite(out).all():
-            fail(f"{filename} ทำนายออกมาเป็น NaN หรือ inf")
-        print(f"  {name:8s} โหลดได้ ทำนายได้ปกติ")
+            fail(f"{onnx_path.name} ทำนายออกมาเป็น NaN หรือ inf")
+
+        # ถ้ามีต้นฉบับ ให้เทียบว่าแปลงแล้วผลยังตรงกัน
+        # จับกรณีที่แปลงสำเร็จแต่ได้โมเดลที่คำนวณผิด ซึ่งอันตรายกว่าแปลงไม่ผ่าน
+        if keras_path.exists():
+            try:
+                kmodel = load_model(keras_path, custom_objects={"TCN": TCN})
+                kout = kmodel.predict(probe, verbose=0)
+            except Exception as exc:
+                fail(f"โหลดต้นฉบับ {keras_path.name} ไม่ได้: {exc}")
+            gap = float(np.max(np.abs(kout - out)))
+            if gap > ONNX_TOLERANCE:
+                fail(f"{name}: ผล ONNX ต่างจากต้นฉบับ {gap:.2e} "
+                     f"เกินเกณฑ์ {ONNX_TOLERANCE:.0e}")
+            print(f"  {name:8s} onnx โหลดได้ ตรงกับต้นฉบับ (ต่าง {gap:.1e})")
+        else:
+            print(f"  {name:8s} onnx โหลดได้ (ไม่มีต้นฉบับให้เทียบ)")
 
     path = model_dir / "xgboost_model.json"
     if not path.exists():

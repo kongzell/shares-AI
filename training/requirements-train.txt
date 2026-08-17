@@ -3,6 +3,9 @@
 tensorflow==2.21.0
 keras==3.15.1
 keras-tcn==3.5.6
+# แปลงโมเดลที่เทรนเสร็จเป็น .onnx ให้ฝั่ง deploy ใช้โดยไม่ต้องมี TensorFlow
+tf2onnx==1.17.0
+onnxruntime==1.28.0          # ใช้ตรวจว่าไฟล์ที่แปลงแล้วให้ผลตรงกับต้นฉบับ
 xgboost==3.4.0
 scikit-learn==1.9.0
 pandas==3.0.5

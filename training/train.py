@@ -16,6 +16,9 @@ import argparse
 import json
 import os
 import random
+import subprocess
+import sys
+import tempfile
 from datetime import date
 from pathlib import Path
 
@@ -142,6 +145,28 @@ def direction_accuracy(y_true, y_pred):
                          (np.asarray(y_pred).ravel() >= 0)) * 100)
 
 
+def export_onnx(model, onnx_path: Path):
+    """
+    แปลงโมเดล Keras เป็น ONNX เพื่อให้ฝั่ง deploy รันได้โดยไม่ต้องมี TensorFlow
+    (TensorFlow กิน 1.5 GB ซึ่งใหญ่เกินกว่าที่ free tier ส่วนใหญ่จะรับไหว)
+
+    Keras 3 เก็บไฟล์คนละรูปแบบกับเวอร์ชันเก่า tf2onnx จึงอ่าน .keras ตรง ๆ ไม่ได้
+    ต้อง export เป็น SavedModel ก่อนแล้วค่อยแปลง — จุดนี้เป็นที่ที่คนติดกันบ่อย
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        saved = os.path.join(tmp, "sm")
+        model.export(saved)
+        result = subprocess.run(
+            [sys.executable, "-m", "tf2onnx.convert",
+             "--saved-model", saved,
+             "--output", str(onnx_path),
+             "--opset", "17"],
+            capture_output=True, text=True,
+        )
+    if result.returncode != 0:
+        raise RuntimeError(f"แปลง ONNX ไม่สำเร็จ: {result.stderr[-500:]}")
+
+
 def train_sequence_model(name, layers, data, out_dir, filename):
     X_train, X_test, y_train, y_test = data
     print(f"\n=== เทรน {name} ===", flush=True)
@@ -152,13 +177,16 @@ def train_sequence_model(name, layers, data, out_dir, filename):
     model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=2)
 
     path = out_dir / filename
-    model.save(path)
+    model.save(path)                       # เก็บต้นฉบับไว้อ้างอิง
+    onnx_path = path.with_suffix(".onnx")
+    export_onnx(model, onnx_path)          # ตัวที่ backend ใช้จริง
 
     pred = model.predict(X_test, verbose=0)
     metrics = {"mae_percent": mae_percent(y_test, pred),
                "direction_accuracy": direction_accuracy(y_test, pred)}
     print(f"{name}: MAE {metrics['mae_percent']:.3f}%  "
-          f"ทายทิศทางถูก {metrics['direction_accuracy']:.1f}%  -> {path.name}")
+          f"ทายทิศทางถูก {metrics['direction_accuracy']:.1f}%  "
+          f"-> {path.name} + {onnx_path.name}")
     return metrics
 
 
