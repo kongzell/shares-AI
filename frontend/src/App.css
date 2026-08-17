@@ -647,6 +647,52 @@ html:has(.page.dark), body:has(.page.dark) {
   .navbar { flex-wrap: wrap; }
   .nav-search { max-width: 100%; order: 2; width: 100%; }
   .nav-actions { order: 1; margin-left: auto; }
+
+  /* ===== หัวกราฟ: เรียงลงมาแทนการอัดในแถวเดียว =====
+     บนจอแคบ ชื่อหุ้น + ปุ่มดาว + ปุ่มเลือกช่วงเวลา + ราคา เบียดกันจน
+     ข้อความในปุ่มดาวตัดขึ้นบรรทัดใหม่ และคำอธิบายใต้ชื่อหุ้นยาว 3 บรรทัด */
+  .panel-head { flex-direction: column; align-items: stretch; gap: 14px; }
+
+  /* ช่วงเวลากับราคาอยู่แถวเดียวกัน ใช้พื้นที่แนวนอนที่ว่างให้คุ้ม */
+  .head-right {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+  .price-now { text-align: right; }
+
+  /* ปุ่มเลือกช่วงเวลาบีบให้พอดีจอ */
+  .seg-btn { padding: 7px 12px; font-size: 12.5px; }
+
+  /* ปุ่มดาวไม่ให้ข้อความตัดบรรทัด */
+  .star-btn { white-space: nowrap; }
+
+  /* การ์ดหุ้นด้านบน: เล็กลงให้เห็นหลายใบพร้อมกันตอนเลื่อน */
+  .stat-card { flex-basis: 150px; padding: 14px; }
+  .stat-price { font-size: 20px; }
+  .ticker { font-size: 13px; }
+  .stat-head { margin-bottom: 6px; }
+
+  /* ลดขนาดตัวเลขใหญ่ให้พอดีจอแคบ */
+  .panel { padding: 16px; }
+  .price-now .big { font-size: 26px; }
+  .predict-value { font-size: 34px; }
+
+  /* บรรทัดอายุข้อมูล: ให้ป้ายลงบรรทัดใหม่ได้แทนที่จะดันจนล้น */
+  .data-age { flex-wrap: wrap; row-gap: 4px; }
+
+  /* กล่องย้อนทำนาย: ลูกศรกินที่โดยไม่จำเป็นบนจอแคบ */
+  .backtest-row { gap: 8px; }
+  .backtest-arrow { display: none; }
+  .backtest-num { font-size: 14px; }
+}
+
+/* จอแคบมาก (มือถือรุ่นเล็ก) */
+@media (max-width: 400px) {
+  .stat-card { flex-basis: 132px; }
+  .seg-btn { padding: 7px 9px; font-size: 12px; }
+  .predict-value { font-size: 30px; }
 }
 
 /* ===== tooltip แท่งเทียน ===== */

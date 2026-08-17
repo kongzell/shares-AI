@@ -1,53 +1,32 @@
-:root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+/*
+  สไตล์พื้นฐานของทั้งหน้า
+  หน้าตาจริงของแอปกำหนดใน App.css ทั้งหมด ไฟล์นี้ทำแค่ตั้งฟอนต์กับสีพื้นฐาน
 
+  สำคัญ: ห้ามผูกสีกับธีมของระบบปฏิบัติการ (prefers-color-scheme)
+  เพราะแอปมีปุ่มสลับโหมดมืดของตัวเองอยู่แล้ว (.page.dark ใน App.css)
+  ถ้าผูกไว้ เครื่องที่ตั้งระบบเป็นโหมดมืดจะได้ตัวอักษรสีอ่อนบนพื้นขาว
+  เช่น ชื่อหุ้นจางจนอ่านไม่ออก และปุ่มขาวบนพื้นขาว
+*/
+
+:root {
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 145%;
+
+  /* บังคับโหมดสว่างเป็นฐานเสมอ ไม่ตามระบบปฏิบัติการ
+     ถ้าเป็น "light dark" เบราว์เซอร์จะให้สีตัวอักษรเริ่มต้นของ <button>
+     เป็นสีขาวเมื่อระบบอยู่โหมดมืด ทำให้ปุ่มที่ไม่ได้กำหนดสีเองมองไม่เห็น */
+  color-scheme: light;
+  color: #101828;
+  background: #f9fafb;
+
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
 }
 
 body {
@@ -64,46 +43,16 @@ body {
   box-sizing: border-box;
 }
 
+/* หัวข้อรับสีจากบรรพบุรุษ เพื่อให้โหมดมืดของแอป (.page.dark) คุมได้
+   ขนาดกับระยะห่างกำหนดเจาะจงใน App.css อีกที */
 h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
+h2,
+h3 {
+  color: inherit;
+  font-weight: 600;
   margin: 0;
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+p {
+  margin: 0;
 }
