@@ -1,0 +1,17 @@
+{
+  // ตั้งค่าให้ Cloudflare เสิร์ฟไฟล์ static ที่ vite build สร้างไว้
+  "name": "stock-dashboard",
+  "compatibility_date": "2025-01-01",
+
+  "assets": {
+    // โฟลเดอร์ผลลัพธ์ของ vite build
+    "directory": "./dist",
+
+    // หน้าเว็บใช้ React Router จัดการเส้นทางฝั่งเบราว์เซอร์
+    // ถ้าไม่ตั้งค่านี้ คนที่เปิด /login ตรง ๆ จะเจอ 404
+    // เพราะไม่มีไฟล์ชื่อ login.html อยู่จริงบนเซิร์ฟเวอร์
+    // single-page-application สั่งให้ส่ง index.html กลับไปทุกเส้นทาง
+    // แล้วปล่อยให้ React Router ตัดสินใจว่าจะแสดงหน้าไหน
+    "not_found_handling": "single-page-application"
+  }
+}
