@@ -19,6 +19,10 @@ frontend/
 training/
 .github/
 
+# โมเดลต้นฉบับของ Keras เก็บไว้ใน git เพื่ออ้างอิงและเผื่อแปลงใหม่
+# แต่ backend ใช้ .onnx เท่านั้น จึงไม่ต้องพาขึ้น image
+backend/model/*.keras
+
 # ===== git และเครื่องมือ =====
 .git/
 .gitignore
