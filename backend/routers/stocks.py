@@ -4,7 +4,7 @@ import numpy as np
 import yfinance as yf
 import pandas as pd
 import onnxruntime as ort
-from xgboost import XGBRegressor
+import xgboost as xgb
 
 router = APIRouter(tags=["หุ้น"])
 
@@ -12,10 +12,8 @@ router = APIRouter(tags=["หุ้น"])
 BASE_DIR = Path(__file__).parent.parent
 MODEL_DIR = BASE_DIR / "model"
 
-# โหลดโมเดลผ่าน ONNX Runtime ไม่ใช่ TensorFlow
-# TensorFlow กิน 1.5 GB ซึ่งใหญ่เกินกว่าที่ free tier จะรับไหว ส่วน ONNX Runtime
+# โหลดโมเดลผ่าน ONNX Runtime
 # กิน 43 MB และทำนายได้ผลเท่ากัน (ทดสอบแล้วต่างกันไม่เกิน 3.7e-08)
-# การเทรนยังใช้ TensorFlow เหมือนเดิม แต่เกิดบน GitHub Actions ที่ทรัพยากรเหลือเฟือ
 models = {
     "lstm": ort.InferenceSession(str(MODEL_DIR / "multi_asset_lstm.onnx"),
                                  providers=["CPUExecutionProvider"]),
@@ -24,11 +22,15 @@ models = {
     "tcn": ort.InferenceSession(str(MODEL_DIR / "tcn_model.onnx"),
                                 providers=["CPUExecutionProvider"]),
 }
-# โหลดด้วย load_model ของ XGBoost ไม่ใช่ pickle
-# pickle ของ XGBoost ผูกกับแพลตฟอร์มที่สร้าง โมเดลที่เทรนบน Linux (GitHub Actions)
-# จะโหลดบน Windows ไม่ได้ ส่วนรูปแบบ .json ใช้ข้ามเครื่องได้
-xgb_model = XGBRegressor()
-xgb_model.load_model(MODEL_DIR / "xgboost_model.json")
+# ใช้ Booster ซึ่งเป็น API ระดับล่างของ xgboost ไม่ใช่ XGBRegressor
+# เพราะ XGBRegressor() ต้องมี scikit-learn ตอนสร้าง object ซึ่งจะลาก scipy
+# ตามมาอีกรวม ~150 MB โดยที่เราไม่ได้ใช้อะไรจากมันเลยนอกจากตอนเทรน
+# ทดสอบแล้วว่า Booster ให้ผลตรงกับ XGBRegressor ทุกค่า (ต่างกัน 0.0)
+#
+# ส่วนรูปแบบไฟล์ใช้ .json ไม่ใช่ pickle เพราะ pickle ของ XGBoost ผูกกับ
+# แพลตฟอร์มที่สร้าง โมเดลที่เทรนบน Linux จะโหลดบน Windows ไม่ได้
+xgb_model = xgb.Booster()
+xgb_model.load_model(str(MODEL_DIR / "xgboost_model.json"))
 LOOKBACK = 30
 
 def get_currency(symbol: str) -> str:
@@ -211,7 +213,8 @@ def predict_return(returns, model_name: str) -> float:
             "MA30": [ret_series.rolling(30).mean().iloc[-1]],
             "Prev_Return": [ret_series.iloc[-2]],
         })
-        return float(xgb_model.predict(features)[0])
+        # Booster รับ DMatrix ไม่ใช่ DataFrame ตรง ๆ เหมือน XGBRegressor
+        return float(xgb_model.predict(xgb.DMatrix(features))[0])
 
     raise HTTPException(status_code=400,
                         detail="model_name ต้องเป็น lstm, gru, tcn หรือ xgboost")
