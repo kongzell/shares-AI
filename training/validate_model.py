@@ -25,7 +25,7 @@ os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 
 import pandas as pd  # noqa: E402
 import onnxruntime as ort  # noqa: E402
-from xgboost import XGBRegressor  # noqa: E402
+import xgboost as xgb  # noqa: E402
 from tensorflow.keras.models import load_model  # noqa: E402
 from tcn import TCN  # noqa: E402
 
@@ -118,9 +118,13 @@ def check_files_loadable(model_dir: Path):
     if not path.exists():
         fail("ไม่พบไฟล์ xgboost_model.json")
     try:
-        xgb = XGBRegressor()
-        xgb.load_model(path)
-        out = xgb.predict(pd.DataFrame([[0.0, 0.0, 0.0, 0.0]], columns=XGB_FEATURES))
+        # ต้องโหลดด้วย Booster ให้ตรงกับที่ backend ใช้จริง
+        # ถ้าตรวจด้วย XGBRegressor จะไม่มีวันจับได้ว่า backend พังเพราะไม่มี sklearn
+        # (เคยพลาดมาแล้วตอน deploy รอบแรก)
+        booster = xgb.Booster()
+        booster.load_model(str(path))
+        probe_row = pd.DataFrame([[0.01, 0.002, 0.001, -0.003]], columns=XGB_FEATURES)
+        out = booster.predict(xgb.DMatrix(probe_row))
     except Exception as exc:
         fail(f"โหลด xgboost_model.json ไม่ได้ หรือทำนายไม่ผ่าน: {exc}")
     if not np.isfinite(out).all():

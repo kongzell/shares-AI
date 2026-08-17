@@ -30,5 +30,8 @@ pandas==3.0.5
 onnxruntime==1.28.0
 # โมเดล XGBoost เก็บเป็น .json ผ่าน save_model/load_model ของ xgboost เอง
 # ไม่ได้ใช้ pickle เพราะ pickle ของ XGBoost ย้ายข้ามแพลตฟอร์มไม่ได้
-# (ทดสอบแล้วว่าไม่ต้องมี scikit-learn เพราะ xgboost มี fallback ให้)
+#
+# ไม่ต้องมี scikit-learn เพราะ backend โหลดผ่าน xgb.Booster() ซึ่งเป็น API
+# ระดับล่างที่ไม่พึ่ง sklearn ถ้าเปลี่ยนไปใช้ XGBRegressor() เมื่อไหร่
+# จะต้องเพิ่ม scikit-learn (ซึ่งลาก scipy มาด้วยรวม ~150 MB) ทันที
 xgboost==3.4.0
