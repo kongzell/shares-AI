@@ -1,10 +1,11 @@
 {
-  // ตั้งค่าให้ Cloudflare เสิร์ฟไฟล์ static ที่ vite build สร้างไว้
-  "name": "stock-dashboard",
+  // ชื่อต้องตรงกับ Worker ที่สร้างไว้บน Cloudflare
+  // ดูได้จาก URL: thesis.kongzell008.workers.dev
+  "name": "thesis",
   "compatibility_date": "2025-01-01",
 
   "assets": {
-    // โฟลเดอร์ผลลัพธ์ของ vite build
+    // โฟลเดอร์ผลลัพธ์ของ vite build (สัมพัทธ์กับโฟลเดอร์ frontend)
     "directory": "./dist",
 
     // หน้าเว็บใช้ React Router จัดการเส้นทางฝั่งเบราว์เซอร์
