@@ -9,7 +9,6 @@ db = SessionLocal()
 
 USERS = [
     ("admin", "admin1234"),
-    ("student", "student1234"),
 ]
 
 for username, password in USERS:

@@ -60,8 +60,12 @@ def load_intraday(symbol: str):
                                auto_adjust=True, progress=False)
         except Exception:
             continue
-        if not data.empty and len(data) >= MIN_BARS:
-            result = (flatten_columns(data), interval, minutes)
+        if data.empty:
+            continue
+        # ตัดแท่งที่ยังไม่มีราคาซื้อขายจริงทิ้ง ไม่งั้น NaN จะหลุดไปถึง response
+        data = flatten_columns(data).dropna(subset=["Close"])
+        if len(data) >= MIN_BARS:
+            result = (data, interval, minutes)
             break
 
     with _cache_lock:

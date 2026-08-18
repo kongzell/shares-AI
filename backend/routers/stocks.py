@@ -13,7 +13,6 @@ BASE_DIR = Path(__file__).parent.parent
 MODEL_DIR = BASE_DIR / "model"
 
 # โหลดโมเดลผ่าน ONNX Runtime
-# กิน 43 MB และทำนายได้ผลเท่ากัน (ทดสอบแล้วต่างกันไม่เกิน 3.7e-08)
 models = {
     "lstm": ort.InferenceSession(str(MODEL_DIR / "multi_asset_lstm.onnx"),
                                  providers=["CPUExecutionProvider"]),
@@ -22,13 +21,7 @@ models = {
     "tcn": ort.InferenceSession(str(MODEL_DIR / "tcn_model.onnx"),
                                 providers=["CPUExecutionProvider"]),
 }
-# ใช้ Booster ซึ่งเป็น API ระดับล่างของ xgboost ไม่ใช่ XGBRegressor
-# เพราะ XGBRegressor() ต้องมี scikit-learn ตอนสร้าง object ซึ่งจะลาก scipy
-# ตามมาอีกรวม ~150 MB โดยที่เราไม่ได้ใช้อะไรจากมันเลยนอกจากตอนเทรน
-# ทดสอบแล้วว่า Booster ให้ผลตรงกับ XGBRegressor ทุกค่า (ต่างกัน 0.0)
-#
-# ส่วนรูปแบบไฟล์ใช้ .json ไม่ใช่ pickle เพราะ pickle ของ XGBoost ผูกกับ
-# แพลตฟอร์มที่สร้าง โมเดลที่เทรนบน Linux จะโหลดบน Windows ไม่ได้
+
 xgb_model = xgb.Booster()
 xgb_model.load_model(str(MODEL_DIR / "xgboost_model.json"))
 LOOKBACK = 30
@@ -58,7 +51,6 @@ def flatten_columns(data):
 def download_symbol(symbol: str, **kwargs):
     """
     ดึงข้อมูลจาก yfinance พร้อมเดานามสกุลตลาดไทยให้อัตโนมัติ
-    yfinance เรียกหุ้น SET ว่า KBANK.BK ผู้ใช้ที่พิมพ์แค่ KBANK จึงหาไม่เจอ
     จึงลองตามที่พิมพ์ก่อน ถ้าไม่เจอค่อยลองเติม .BK ให้
     คืน (ข้อมูล, ticker ที่ใช้ได้จริง) — ถ้าไม่เจอเลยคืน (None, ตามที่พิมพ์)
     """
@@ -70,6 +62,13 @@ def download_symbol(symbol: str, **kwargs):
 
     for candidate in candidates:
         data = yf.download(candidate, progress=False, **kwargs)
+        if data.empty:
+            continue
+
+        # yfinance แถมแถวของวันที่ยังไม่มีการซื้อขายจริงมาด้วย มีแต่ volume
+        # ส่วนราคาเป็น NaN ทั้งแถว ถ้าปล่อยผ่านไปจะกลายเป็น NaN ในผลลัพธ์
+        # แล้วพังตอนแปลงเป็น JSON เพราะ Starlette ตั้ง allow_nan=False
+        data = flatten_columns(data).dropna(subset=["Close"])
         if not data.empty:
             return data, candidate
 
@@ -133,7 +132,6 @@ def get_history(symbol: str, days: int = 5, interval: str = "30m"):
 
     # yfinance นับ period="1d" เป็น "ย้อนหลัง 24 ชั่วโมงจากตอนนี้" ไม่ใช่ "วันทำการล่าสุด"
     # ตลาดที่เพิ่งเปิด (เช่น SET ตอนเช้า) จึงได้ข้อมูลว่างเปล่า
-    # จึงขอกว้างไว้ก่อนแล้วค่อยตัดให้เหลือเฉพาะรอบล่าสุด
     fetch_days = max(days, 2)
     data, symbol = download_symbol(symbol, period=f"{fetch_days}d", interval=interval,
                                    auto_adjust=True)
@@ -144,7 +142,6 @@ def get_history(symbol: str, days: int = 5, interval: str = "30m"):
 
     # ตัดให้เหลือรอบซื้อขายล่าสุด โดยใช้วันที่ตาม "เวลาตลาดต้นทาง" ที่ yfinance ส่งมา
     # ต้องทำก่อนแปลงเป็นเวลาไทย เพราะรอบของตลาดสหรัฐคาบเกี่ยวเที่ยงคืนตามเวลาไทย
-    # ถ้ากรองหลังแปลง รอบเดียวจะถูกหั่นเป็นสองวัน
     if days == 1 and is_intraday:
         data = latest_session_only(data)
 
@@ -250,7 +247,6 @@ def predict_stock(symbol: str, model_name: str = "lstm"):
 
     # ===== ย้อนทำนายราคาปิดของวันล่าสุด แล้วเทียบกับราคาจริง =====
     # ใช้ข้อมูลถึงวันก่อนหน้าเท่านั้น (ตัด return ตัวสุดท้ายทิ้ง) โมเดลจึงไม่เห็นเฉลย
-    # ผลที่ได้บอกว่าโมเดลแม่นแค่ไหนกับวันที่รู้คำตอบแล้ว
     if len(returns) >= LOOKBACK + 1:
         prev_close = float(daily["Close"].iloc[-2])
         today_return = predict_return(returns[:-1], model_name)
