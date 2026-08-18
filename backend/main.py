@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from routers import stocks, alert, auth_router, watchlist
+from routers import stocks, alert, auth_router, watchlist, news
 
 load_dotenv()
 
@@ -33,6 +33,7 @@ app.include_router(stocks.router)
 app.include_router(alert.router)
 app.include_router(auth_router.router)
 app.include_router(watchlist.router)
+app.include_router(news.router)
 
 
 @app.get("/")

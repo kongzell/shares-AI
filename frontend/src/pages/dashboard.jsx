@@ -7,7 +7,7 @@ import {
 } from "recharts";
 import {
   addWatchlist, getWatchlist, removeWatchlist, getWatchlistAlerts,
-  isLoggedIn, getUsername, logout,
+  getWatchlistNews, isLoggedIn, getUsername, logout,
 } from "../api";
 import "../App.css";
 
@@ -43,6 +43,10 @@ const PRICE_REFRESH_MS = 5 * 60 * 1000;
 const QUICK_REFRESH_MS = 30 * 60 * 1000;
 // ผลทำนายเป็นราคาปิดวันถัดไป เปลี่ยนช้า รันโมเดลชั่วโมงละครั้งพอ
 const PREDICT_REFRESH_MS = 60 * 60 * 1000;
+// ข่าวออกไม่ถี่ และฝั่ง backend ก็ cache ไว้ 10 นาทีอยู่แล้ว
+const NEWS_REFRESH_MS = 10 * 60 * 1000;
+// เวลาที่ข่าว 1 ชิ้นใช้วิ่งผ่านจอ ยิ่งมากยิ่งช้า
+const NEWS_SEC_PER_ITEM = 9;
 
 /**
  * แท่งเทียน 1 แท่ง — recharts ไม่มี candlestick ในตัว จึงวาดเองผ่าน shape ของ Bar
@@ -70,6 +74,74 @@ const Candle = ({ x, y, width, height, payload }) => {
   );
 };
 
+/** อายุข่าวเป็นชั่วโมง → ข้อความไทยแบบย่อ */
+const newsAge = (hours) => {
+  if (hours < 1) return `${Math.max(1, Math.round(hours * 60))} นาทีที่แล้ว`;
+  if (hours < 24) return `${Math.round(hours)} ชม.ที่แล้ว`;
+  return `${Math.round(hours / 24)} วันที่แล้ว`;
+};
+
+/**
+ * แถบข่าววิ่งด้านล่างจอ แบบเดียวกับแถบราคาหุ้นตามช่องข่าว
+ * วิธีทำให้วนไม่รู้จบ: วางรายการข่าวซ้ำสองชุดต่อกัน แล้วเลื่อนไปทางซ้าย 50%
+ * พอชุดแรกวิ่งพ้นจอ ชุดที่สองจะมาอยู่ตำแหน่งเดิมพอดี ภาพจึงต่อเนียน
+ */
+const NewsTicker = ({ items, loading, hasWatchlist }) => {
+  const [paused, setPaused] = useState(false);
+
+  let body;
+  if (loading && items.length === 0) {
+    body = <span className="news-empty">กำลังโหลดข่าว...</span>;
+  } else if (!hasWatchlist) {
+    body = <span className="news-empty">เพิ่มหุ้นเข้า Watchlist เพื่อดูข่าวของหุ้นนั้น</span>;
+  } else if (items.length === 0) {
+    body = <span className="news-empty">ไม่มีข่าวของหุ้นใน Watchlist ในรอบ 1 สัปดาห์</span>;
+  } else {
+    const duration = items.length * NEWS_SEC_PER_ITEM;
+    body = (
+      <div className="news-viewport">
+        <div
+          className="news-track"
+          style={{ animationDuration: `${duration}s`, animationPlayState: paused ? "paused" : "running" }}
+        >
+          {/* aria-hidden ที่ชุดสอง กันโปรแกรมอ่านหน้าจออ่านข่าวซ้ำสองรอบ */}
+          {[0, 1].map((copy) =>
+            items.map((item) => (
+              <a
+                key={`${copy}-${item.id}`}
+                className="news-item"
+                href={item.link || undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-hidden={copy === 1 ? "true" : undefined}
+                tabIndex={copy === 1 ? -1 : undefined}
+                title={item.publisher ? `${item.publisher} — ${item.title}` : item.title}
+              >
+                <span className="news-sym">{item.symbol}</span>
+                <span className="news-title">{item.title}</span>
+                <span className="news-time">{newsAge(item.age_hours)}</span>
+              </a>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="news-bar"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onTouchStart={() => setPaused(true)}
+      onTouchEnd={() => setPaused(false)}
+    >
+      <span className="news-label">ข่าว Watchlist</span>
+      {body}
+    </div>
+  );
+};
+
 export default function Dashboard({ darkMode, setDarkMode }) {
   const navigate = useNavigate();
   const [symbol, setSymbol] = useState("AAPL");
@@ -88,6 +160,8 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   const [showWatchlist, setShowWatchlist] = useState(false);
   const [watchlist, setWatchlist] = useState([]);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
+  const [news, setNews] = useState([]);
+  const [newsLoading, setNewsLoading] = useState(false);
   const [starLoading, setStarLoading] = useState(false);
   const [showUser, setShowUser] = useState(false);
   const [username] = useState(getUsername());
@@ -149,6 +223,32 @@ export default function Dashboard({ darkMode, setDarkMode }) {
     if (!isLoggedIn()) return;
     fetchAlert();
     const t = setInterval(fetchAlert, ALERT_POLL_MS);
+    return () => clearInterval(t);
+  }, [watchlist.length]);
+
+  // ===== ข่าวของหุ้นใน watchlist =====
+
+  const fetchNews = async () => {
+    setNewsLoading(true);
+    try {
+      const res = await getWatchlistNews();
+      setNews(res.data.items || []);
+    } catch {
+      setNews([]);
+    } finally {
+      setNewsLoading(false);
+    }
+  };
+
+  // ดึงใหม่เมื่อ watchlist เปลี่ยนจำนวน เพราะข่าวผูกกับรายการหุ้นโดยตรง
+  useEffect(() => {
+    if (!isLoggedIn()) return;
+    if (watchlist.length === 0) {
+      setNews([]);
+      return;
+    }
+    fetchNews();
+    const t = setInterval(fetchNews, NEWS_REFRESH_MS);
     return () => clearInterval(t);
   }, [watchlist.length]);
 
@@ -760,6 +860,14 @@ export default function Dashboard({ darkMode, setDarkMode }) {
       )}
 
       <footer className="foot">เพื่อการศึกษาเท่านั้น ไม่ใช่คำแนะนำการลงทุน</footer>
+
+      {isLoggedIn() && (
+        <NewsTicker
+          items={news}
+          loading={newsLoading}
+          hasWatchlist={watchlist.length > 0}
+        />
+      )}
     </div>
 
   );

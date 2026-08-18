@@ -34,6 +34,10 @@ export const removeWatchlist = (symbol) => api.delete(`/watchlist/${symbol}`);
 // เฝ้าระวังการทุ่มตลาดเฉพาะหุ้นใน watchlist ของผู้ใช้
 export const getWatchlistAlerts = () => api.get("/alert/watchlist");
 
+// ===== News =====
+// ข่าวภายใน 1 สัปดาห์ เฉพาะหุ้นใน watchlist ของผู้ใช้
+export const getWatchlistNews = () => api.get("/news/watchlist");
+
 // ===== Stock =====
 export const getStock = (symbol) => api.get(`/stock/${symbol}`);
 
