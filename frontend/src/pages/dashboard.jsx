@@ -45,8 +45,8 @@ const QUICK_REFRESH_MS = 30 * 60 * 1000;
 const PREDICT_REFRESH_MS = 60 * 60 * 1000;
 // ข่าวออกไม่ถี่ และฝั่ง backend ก็ cache ไว้ 10 นาทีอยู่แล้ว
 const NEWS_REFRESH_MS = 10 * 60 * 1000;
-// เวลาที่ข่าว 1 ชิ้นใช้วิ่งผ่านจอ ยิ่งมากยิ่งช้า
-const NEWS_SEC_PER_ITEM = 9;
+// ความเร็วที่กระดานข่าวเลื่อนเอง ช้าพอให้อ่านเนื้อหาย่อทัน
+const NEWS_SPEED_PX_SEC = 28;
 
 /**
  * แท่งเทียน 1 แท่ง — recharts ไม่มี candlestick ในตัว จึงวาดเองผ่าน shape ของ Bar
@@ -82,63 +82,105 @@ const newsAge = (hours) => {
 };
 
 /**
- * แถบข่าววิ่งด้านล่างจอ แบบเดียวกับแถบราคาหุ้นตามช่องข่าว
- * วิธีทำให้วนไม่รู้จบ: วางรายการข่าวซ้ำสองชุดต่อกัน แล้วเลื่อนไปทางซ้าย 50%
- * พอชุดแรกวิ่งพ้นจอ ชุดที่สองจะมาอยู่ตำแหน่งเดิมพอดี ภาพจึงต่อเนียน
+ * กระดานข่าวท้ายหน้า dashboard — การ์ดข่าวเรียงแนวนอน เลื่อนเองแบบแถบหุ้น
+ *
+ * ใช้ scrollLeft แทน CSS transform เพราะแบบนี้ผู้ใช้ยังปัด/ลากอ่านเองได้ตามปกติ
+ * วางการ์ดซ้ำสองชุด พอเลื่อนถึงครึ่งทางก็ดึงกลับมาที่ต้นชุดสอง ภาพจึงต่อเนียน
  */
-const NewsTicker = ({ items, loading, hasWatchlist }) => {
-  const [paused, setPaused] = useState(false);
+const NewsBoard = ({ items, loading, hasWatchlist }) => {
+  const trackRef = useRef(null);
+  const pausedRef = useRef(false);
+
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el || items.length === 0) return;
+    // เครื่องที่ตั้งค่าลดการเคลื่อนไหวไว้ ให้อยู่นิ่งแล้วเลื่อนอ่านเองแทน
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    // ระยะที่ต้องเลื่อนก่อนวนกลับ = ระยะจากการ์ดใบแรกของชุดหนึ่งไปยังใบแรกของชุดสอง
+    // ใช้ scrollWidth/2 ไม่ได้ เพราะชุดสุดท้ายไม่มีช่องไฟต่อท้าย จะเพี้ยนไปหนึ่งช่องไฟ
+    const period = () => {
+      const first = el.children[0];
+      const second = el.children[items.length];
+      return second ? second.offsetLeft - first.offsetLeft : el.scrollWidth / 2;
+    };
+
+    let raf;
+    let last = performance.now();
+    let wrapAt = period();
+    const onResize = () => { wrapAt = period(); };
+    window.addEventListener("resize", onResize);
+
+    const step = (now) => {
+      const dt = now - last;
+      last = now;
+      if (!pausedRef.current) {
+        // ผู้ใช้อาจเพิ่งปัดไปเอง จึงยึดตำแหน่งจริงเป็นหลักก่อนเดินต่อ
+        let pos = el.scrollLeft + (NEWS_SPEED_PX_SEC * dt) / 1000;
+        if (pos >= wrapAt) pos -= wrapAt;
+        el.scrollLeft = pos;
+      }
+      raf = requestAnimationFrame(step);
+    };
+
+    raf = requestAnimationFrame(step);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [items.length]);
 
   let body;
   if (loading && items.length === 0) {
-    body = <span className="news-empty">กำลังโหลดข่าว...</span>;
+    body = <p className="muted small">กำลังโหลดข่าว...</p>;
   } else if (!hasWatchlist) {
-    body = <span className="news-empty">เพิ่มหุ้นเข้า Watchlist เพื่อดูข่าวของหุ้นนั้น</span>;
+    body = <p className="muted small">เพิ่มหุ้นเข้า Watchlist เพื่อดูข่าวของหุ้นนั้น</p>;
   } else if (items.length === 0) {
-    body = <span className="news-empty">ไม่มีข่าวของหุ้นใน Watchlist ในรอบ 1 สัปดาห์</span>;
+    body = <p className="muted small">ไม่มีข่าวของหุ้นใน Watchlist ในรอบ 1 สัปดาห์</p>;
   } else {
-    const duration = items.length * NEWS_SEC_PER_ITEM;
     body = (
-      <div className="news-viewport">
-        <div
-          className="news-track"
-          style={{ animationDuration: `${duration}s`, animationPlayState: paused ? "paused" : "running" }}
-        >
-          {/* aria-hidden ที่ชุดสอง กันโปรแกรมอ่านหน้าจออ่านข่าวซ้ำสองรอบ */}
-          {[0, 1].map((copy) =>
-            items.map((item) => (
-              <a
-                key={`${copy}-${item.id}`}
-                className="news-item"
-                href={item.link || undefined}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-hidden={copy === 1 ? "true" : undefined}
-                tabIndex={copy === 1 ? -1 : undefined}
-                title={item.publisher ? `${item.publisher} — ${item.title}` : item.title}
-              >
+      <div
+        className="news-track"
+        ref={trackRef}
+        onMouseEnter={() => { pausedRef.current = true; }}
+        onMouseLeave={() => { pausedRef.current = false; }}
+        onTouchStart={() => { pausedRef.current = true; }}
+        onTouchEnd={() => { pausedRef.current = false; }}
+      >
+        {/* aria-hidden ที่ชุดสอง กันโปรแกรมอ่านหน้าจออ่านข่าวซ้ำสองรอบ */}
+        {[0, 1].map((copy) =>
+          items.map((item) => (
+            <a
+              key={`${copy}-${item.id}`}
+              className="news-card"
+              href={item.link || undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-hidden={copy === 1 ? "true" : undefined}
+              tabIndex={copy === 1 ? -1 : undefined}
+            >
+              <div className="news-card-head">
                 <span className="news-sym">{item.symbol}</span>
-                <span className="news-title">{item.title}</span>
                 <span className="news-time">{newsAge(item.age_hours)}</span>
-              </a>
-            ))
-          )}
-        </div>
+              </div>
+              <h4 className="news-title">{item.title}</h4>
+              {item.summary && <p className="news-summary">{item.summary}</p>}
+              {item.publisher && <span className="news-src">{item.publisher}</span>}
+            </a>
+          ))
+        )}
       </div>
     );
   }
 
   return (
-    <div
-      className="news-bar"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onTouchStart={() => setPaused(true)}
-      onTouchEnd={() => setPaused(false)}
-    >
-      <span className="news-label">ข่าว Watchlist</span>
+    <section className="panel news-panel">
+      <div className="panel-head">
+        <h2>ข่าว Watchlist</h2>
+        <span className="muted small">ย้อนหลัง 7 วัน</span>
+      </div>
       {body}
-    </div>
+    </section>
   );
 };
 
@@ -859,15 +901,15 @@ export default function Dashboard({ darkMode, setDarkMode }) {
         </div>
       )}
 
-      <footer className="foot">เพื่อการศึกษาเท่านั้น ไม่ใช่คำแนะนำการลงทุน</footer>
-
       {isLoggedIn() && (
-        <NewsTicker
+        <NewsBoard
           items={news}
           loading={newsLoading}
           hasWatchlist={watchlist.length > 0}
         />
       )}
+
+      <footer className="foot">เพื่อการศึกษาเท่านั้น ไม่ใช่คำแนะนำการลงทุน</footer>
     </div>
 
   );

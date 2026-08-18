@@ -15,11 +15,24 @@ router = APIRouter(prefix="/news", tags=["ข่าว"])
 MAX_AGE_DAYS = 7       # เอาเฉพาะข่าวภายใน 1 สัปดาห์
 MAX_PER_SYMBOL = 8     # กันไม่ให้หุ้นตัวเดียวกินพื้นที่แถบข่าวทั้งหมด
 MAX_TOTAL = 40         # แถบวิ่งยาวเกินนี้ผู้ใช้ก็รอดูไม่ไหว
+SUMMARY_CHARS = 220    # ความยาวเนื้อหาย่อที่การ์ดข่าวแสดงไหว
 CACHE_TTL_SEC = 600    # ข่าวไม่ได้ออกทุกนาที ดึงใหม่ทุก 10 นาทีพอ
 MAX_PARALLEL = 8
 
 _cache = {}
 _cache_lock = threading.Lock()
+
+
+def _shorten(text: str):
+    """ตัดเนื้อหาย่อให้จบที่คำ ไม่ตัดกลางคำ"""
+    text = " ".join((text or "").split())
+    if len(text) <= SUMMARY_CHARS:
+        return text
+    cut = text[:SUMMARY_CHARS]
+    space = cut.rfind(" ")
+    if space > SUMMARY_CHARS * 0.6:
+        cut = cut[:space]
+    return cut.rstrip(" ,.;:") + "..."
 
 
 def _parse_time(value):
@@ -68,10 +81,14 @@ def load_news(symbol: str):
         provider = content.get("provider")
         publisher = provider.get("displayName", "") if isinstance(provider, dict) else ""
 
+        # ข่าววิดีโอมักไม่มี summary จึงถอยไปใช้ description แทน
+        summary = _shorten(content.get("summary") or content.get("description") or "")
+
         items.append({
             "id": str(content.get("id") or link or title),
             "symbol": symbol,
             "title": title,
+            "summary": summary,
             "publisher": publisher,
             "link": link,
             "published_at": published.isoformat(),

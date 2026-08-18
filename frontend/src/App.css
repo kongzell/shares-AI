@@ -834,92 +834,80 @@ html:has(.page.dark), body:has(.page.dark) {
 .page.dark .login-card { background: #1d2939; border-color: #344054; }
 .page.dark .field input { background: #101828; border-color: #344054; color: #f2f4f7; }
 .page.dark .login-card h2 { color: #f2f4f7; }
-/* ===== แถบข่าววิ่งด้านล่างจอ ===== */
-.news-bar {
-  position: fixed;
-  left: 0; right: 0; bottom: 0;
-  z-index: 50;
+/* ===== กระดานข่าวท้ายหน้า ===== */
+.news-panel { margin-top: 24px; }
+.news-panel .panel-head { margin-bottom: 12px; }
+
+/* ตัวครอบที่เลื่อนได้จริง สคริปต์เลื่อน scrollLeft ให้เอง ผู้ใช้ก็ปัดเองได้ */
+.news-track {
   display: flex;
-  align-items: center;
   gap: 12px;
-  height: 40px;
-  padding-left: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;         /* ซ่อนแถบเลื่อน ไม่งั้นเด้งตอนวนกลับ */
+  overscroll-behavior-x: contain;
+}
+.news-track::-webkit-scrollbar { display: none; }
+
+.news-card {
+  flex: 0 0 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
   background: #fff;
-  border-top: 1px solid #eaecf0;
-  box-shadow: 0 -2px 8px rgba(16, 24, 40, .06);
+  border: 1px solid #eaecf0;
+  border-radius: 12px;
+  text-decoration: none;
+  /* ระบุเฉพาะที่ตั้งใจ ถ้าใช้ .15s เฉยๆ จะไปไล่ขนาด/ระยะขอบตอนจอเปลี่ยนขนาดด้วย */
+  transition: border-color .15s, box-shadow .15s;
+}
+.news-card:hover { border-color: #c7d2fe; box-shadow: 0 4px 12px rgba(16, 24, 40, .07); }
+
+.news-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.news-sym { font-size: 12px; font-weight: 700; color: #465fff; }
+.news-time { font-size: 11px; color: #98a2b3; white-space: nowrap; }
+
+/* จำกัดจำนวนบรรทัด ไม่งั้นความสูงการ์ดไม่เท่ากัน */
+.news-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #101828;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.news-card:hover .news-title { color: #465fff; }
+
+.news-summary {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #667085;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.news-label {
-  flex: none;
-  font-size: 12px;
-  font-weight: 600;
-  color: #fff;
-  background: #465fff;
-  padding: 4px 10px;
-  border-radius: 6px;
-  white-space: nowrap;
-}
+.news-src { margin-top: auto; padding-top: 4px; font-size: 11px; color: #98a2b3; }
 
-.news-empty { font-size: 13px; color: #98a2b3; }
-
-/* ตัวครอบที่ตัดส่วนเกิน ส่วน track ข้างในเป็นตัววิ่ง */
-.news-viewport { flex: 1; overflow: hidden; }
-
-.news-track {
-  display: flex;
-  align-items: center;
-  width: max-content;
-  animation-name: news-scroll;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-}
-
-/* เลื่อน 50% = ความยาวของข่าวชุดแรกพอดี เพราะวางไว้สองชุดเท่ากัน */
-@keyframes news-scroll {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
-}
-
-.news-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 18px;
-  border-right: 1px solid #eaecf0;
-  text-decoration: none;
-  font-size: 13px;
-  color: #344054;
-  white-space: nowrap;
-}
-.news-item:hover .news-title { color: #465fff; text-decoration: underline; }
-
-.news-sym { font-weight: 700; color: #101828; }
-.news-title { max-width: 60ch; overflow: hidden; text-overflow: ellipsis; }
-.news-time { font-size: 12px; color: #98a2b3; }
-
-/* เผื่อที่ให้เนื้อหาท้ายหน้าไม่ถูกแถบข่าวทับ */
-.page:has(.news-bar) { padding-bottom: 64px; }
-
-/* ===== แถบข่าว: dark mode ===== */
-.page.dark .news-bar { background: #1d2939; border-color: #344054; }
-.page.dark .news-item { color: #d0d5dd; border-color: #344054; }
-.page.dark .news-sym { color: #f2f4f7; }
+/* ===== กระดานข่าว: dark mode ===== */
+.page.dark .news-card { background: #1d2939; border-color: #344054; }
+.page.dark .news-card:hover { border-color: #465fff; }
+.page.dark .news-title { color: #f2f4f7; }
+.page.dark .news-card:hover .news-title { color: #8ba0ff; }
+.page.dark .news-summary { color: #98a2b3; }
 .page.dark .news-time,
-.page.dark .news-empty { color: #667085; }
+.page.dark .news-src { color: #667085; }
 
-/* ===== แถบข่าว: จอเล็ก ===== */
+/* ===== กระดานข่าว: จอเล็ก ===== */
 @media (max-width: 700px) {
-  .news-bar { height: 36px; gap: 8px; padding-left: 8px; }
-  .news-label { font-size: 11px; padding: 3px 8px; }
-  .news-item { padding: 0 12px; font-size: 12px; }
-  .news-title { max-width: 42ch; }
-  .news-time { display: none; }
-  .page:has(.news-bar) { padding-bottom: 56px; }
-}
-
-/* เครื่องที่ตั้งค่าลดการเคลื่อนไหว ให้หยุดวิ่งแล้วเลื่อนดูเองแทน */
-@media (prefers-reduced-motion: reduce) {
-  .news-track { animation: none; }
-  .news-viewport { overflow-x: auto; }
+  .news-panel { margin-top: 16px; }
+  .news-card { flex-basis: 250px; padding: 12px; }
+  .news-summary { -webkit-line-clamp: 2; line-clamp: 2; }
 }
