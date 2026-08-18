@@ -836,16 +836,35 @@ html:has(.page.dark), body:has(.page.dark) {
 .page.dark .login-card h2 { color: #f2f4f7; }
 /* ===== กระดานข่าวท้ายหน้า ===== */
 .news-panel { margin-top: 24px; }
-.news-panel .panel-head { margin-bottom: 12px; }
+.news-panel .panel-head { margin-bottom: 12px; align-items: center; }
 
-/* ตัวครอบที่เลื่อนได้จริง สคริปต์เลื่อน scrollLeft ให้เอง ผู้ใช้ก็ปัดเองได้ */
+.news-tools { display: flex; align-items: center; gap: 8px; }
+
+.news-arrow {
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  background: #fff;
+  border: 1px solid #eaecf0;
+  border-radius: 8px;
+  color: #344054;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  font-family: inherit;
+}
+.news-arrow:hover { border-color: #465fff; color: #465fff; }
+
+/* ตัวครอบที่เลื่อนได้จริง สคริปต์เลื่อน scrollLeft ให้เอง ผู้ใช้ลากเองได้ด้วย */
 .news-track {
   display: flex;
   gap: 12px;
   overflow-x: auto;
   scrollbar-width: none;         /* ซ่อนแถบเลื่อน ไม่งั้นเด้งตอนวนกลับ */
   overscroll-behavior-x: contain;
+  cursor: grab;
+  user-select: none;             /* กันการลากไปโดนเลือกข้อความในการ์ด */
 }
+.news-track:active { cursor: grabbing; }
 .news-track::-webkit-scrollbar { display: none; }
 
 .news-card {
@@ -897,6 +916,8 @@ html:has(.page.dark), body:has(.page.dark) {
 .news-src { margin-top: auto; padding-top: 4px; font-size: 11px; color: #98a2b3; }
 
 /* ===== กระดานข่าว: dark mode ===== */
+.page.dark .news-arrow { background: #1d2939; border-color: #344054; color: #d0d5dd; }
+.page.dark .news-arrow:hover { border-color: #465fff; color: #8ba0ff; }
 .page.dark .news-card { background: #1d2939; border-color: #344054; }
 .page.dark .news-card:hover { border-color: #465fff; }
 .page.dark .news-title { color: #f2f4f7; }

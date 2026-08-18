@@ -89,13 +89,15 @@ const newsAge = (hours) => {
  */
 const NewsBoard = ({ items, loading, hasWatchlist }) => {
   const trackRef = useRef(null);
-  const pausedRef = useRef(false);
+  const hoverRef = useRef(false);
+  const nudgeRef = useRef(false);
+  const nudgeTimer = useRef(null);
+  const wrapRef = useRef(0);
+  const dragRef = useRef({ active: false, startX: 0, startScroll: 0, moved: 0 });
 
   useEffect(() => {
     const el = trackRef.current;
     if (!el || items.length === 0) return;
-    // เครื่องที่ตั้งค่าลดการเคลื่อนไหวไว้ ให้อยู่นิ่งแล้วเลื่อนอ่านเองแทน
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     // ระยะที่ต้องเลื่อนก่อนวนกลับ = ระยะจากการ์ดใบแรกของชุดหนึ่งไปยังใบแรกของชุดสอง
     // ใช้ scrollWidth/2 ไม่ได้ เพราะชุดสุดท้ายไม่มีช่องไฟต่อท้าย จะเพี้ยนไปหนึ่งช่องไฟ
@@ -105,30 +107,81 @@ const NewsBoard = ({ items, loading, hasWatchlist }) => {
       return second ? second.offsetLeft - first.offsetLeft : el.scrollWidth / 2;
     };
 
+    wrapRef.current = period();
+    const onResize = () => { wrapRef.current = period(); };
+    window.addEventListener("resize", onResize);
+
+    // เครื่องที่ตั้งค่าลดการเคลื่อนไหวไว้ ให้อยู่นิ่ง แต่ยังลาก/กดปุ่มลูกศรเลื่อนเองได้
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let raf;
     let last = performance.now();
-    let wrapAt = period();
-    const onResize = () => { wrapAt = period(); };
-    window.addEventListener("resize", onResize);
 
     const step = (now) => {
       const dt = now - last;
       last = now;
-      if (!pausedRef.current) {
-        // ผู้ใช้อาจเพิ่งปัดไปเอง จึงยึดตำแหน่งจริงเป็นหลักก่อนเดินต่อ
+      const drag = dragRef.current.active;
+      if (!hoverRef.current && !drag && !nudgeRef.current) {
+        // ผู้ใช้อาจเพิ่งลากไปเอง จึงยึดตำแหน่งจริงเป็นหลักก่อนเดินต่อ
         let pos = el.scrollLeft + (NEWS_SPEED_PX_SEC * dt) / 1000;
-        if (pos >= wrapAt) pos -= wrapAt;
+        if (pos >= wrapRef.current) pos -= wrapRef.current;
         el.scrollLeft = pos;
       }
       raf = requestAnimationFrame(step);
     };
 
-    raf = requestAnimationFrame(step);
+    if (!still) raf = requestAnimationFrame(step);
     return () => {
-      cancelAnimationFrame(raf);
+      if (raf) cancelAnimationFrame(raf);
       window.removeEventListener("resize", onResize);
+      clearTimeout(nudgeTimer.current);
     };
   }, [items.length]);
+
+  /** ปุ่มลูกศร — เลื่อนทีละเกือบเต็มหน้าจอ พร้อมหยุดตัวเลื่อนอัตโนมัติชั่วคราว */
+  const nudge = (dir) => {
+    const el = trackRef.current;
+    if (!el) return;
+    const step = el.clientWidth * 0.8;
+    // ถอยหลังจนติดขอบซ้ายจะหลุดภาพวนไม่รู้จบ จึงกระโดดไปชุดถัดไปก่อน
+    if (dir < 0 && el.scrollLeft < step) el.scrollLeft += wrapRef.current;
+    nudgeRef.current = true;
+    el.scrollTo({ left: el.scrollLeft + dir * step, behavior: "smooth" });
+    clearTimeout(nudgeTimer.current);
+    nudgeTimer.current = setTimeout(() => { nudgeRef.current = false; }, 600);
+  };
+
+  // ===== ลากด้วยเมาส์ =====
+  // จอสัมผัสปัดได้เองอยู่แล้ว ถ้าดักด้วยจะกลายเป็นเลื่อนสองเท่า จึงรับเฉพาะเมาส์
+  const onPointerDown = (e) => {
+    if (e.pointerType !== "mouse" || e.button !== 0) return;
+    const el = trackRef.current;
+    dragRef.current = { active: true, startX: e.clientX, startScroll: el.scrollLeft, moved: 0 };
+    el.setPointerCapture(e.pointerId);
+  };
+
+  const onPointerMove = (e) => {
+    const drag = dragRef.current;
+    if (!drag.active) return;
+    const dx = e.clientX - drag.startX;
+    drag.moved = Math.max(drag.moved, Math.abs(dx));
+    trackRef.current.scrollLeft = drag.startScroll - dx;
+  };
+
+  const endDrag = (e) => {
+    if (!dragRef.current.active) return;
+    dragRef.current.active = false;
+    const el = trackRef.current;
+    if (el.hasPointerCapture?.(e.pointerId)) el.releasePointerCapture(e.pointerId);
+  };
+
+  // ลากแล้วปล่อยบนการ์ด เบราว์เซอร์จะนับเป็นคลิกด้วย ต้องกันไม่ให้เปิดลิงก์
+  const onClickCapture = (e) => {
+    if (dragRef.current.moved > 5) {
+      e.preventDefault();
+      e.stopPropagation();
+      dragRef.current.moved = 0;
+    }
+  };
 
   let body;
   if (loading && items.length === 0) {
@@ -142,10 +195,16 @@ const NewsBoard = ({ items, loading, hasWatchlist }) => {
       <div
         className="news-track"
         ref={trackRef}
-        onMouseEnter={() => { pausedRef.current = true; }}
-        onMouseLeave={() => { pausedRef.current = false; }}
-        onTouchStart={() => { pausedRef.current = true; }}
-        onTouchEnd={() => { pausedRef.current = false; }}
+        onMouseEnter={() => { hoverRef.current = true; }}
+        onMouseLeave={() => { hoverRef.current = false; }}
+        onTouchStart={() => { hoverRef.current = true; }}
+        onTouchEnd={() => { hoverRef.current = false; }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onClickCapture={onClickCapture}
+        onDragStart={(e) => e.preventDefault()}
       >
         {/* aria-hidden ที่ชุดสอง กันโปรแกรมอ่านหน้าจออ่านข่าวซ้ำสองรอบ */}
         {[0, 1].map((copy) =>
@@ -177,7 +236,15 @@ const NewsBoard = ({ items, loading, hasWatchlist }) => {
     <section className="panel news-panel">
       <div className="panel-head">
         <h2>ข่าว Watchlist</h2>
-        <span className="muted small">ย้อนหลัง 7 วัน</span>
+        <div className="news-tools">
+          <span className="muted small">ย้อนหลัง 7 วัน</span>
+          {items.length > 0 && (
+            <>
+              <button className="news-arrow" onClick={() => nudge(-1)} title="ข่าวก่อนหน้า" aria-label="เลื่อนไปทางซ้าย">‹</button>
+              <button className="news-arrow" onClick={() => nudge(1)} title="ข่าวถัดไป" aria-label="เลื่อนไปทางขวา">›</button>
+            </>
+          )}
+        </div>
       </div>
       {body}
     </section>
