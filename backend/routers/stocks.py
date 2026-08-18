@@ -417,4 +417,13 @@ def predict_stock(symbol: str, model_name: str = "lstm"):
             "today_direction_correct": bool((predicted_today >= prev_close) == (daily_close >= prev_close)),
         })
 
+        # แถบของวันล่าสุด ต้องตัด residual ของวันนั้นเองออกก่อน
+        # ไม่งั้นเป็นการเอาความผิดพลาดของวันที่กำลังตรวจมาสร้างแถบให้ตัวเอง
+        past = data["residuals"][:-1][-CAL_WINDOW:]
+        band_today = {level: make_band(past, predicted_today, level) for level in BAND_LEVELS}
+        if band_today[80]:
+            result["band_today"] = {str(l): b for l, b in band_today.items() if b}
+            result["today_in_band"] = bool(
+                band_today[80]["low"] <= daily_close <= band_today[80]["high"])
+
     return result

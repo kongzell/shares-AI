@@ -933,19 +933,11 @@ html:has(.page.dark), body:has(.page.dark) {
   .news-summary { -webkit-line-clamp: 2; line-clamp: 2; }
 }
 
-/* ===== แถบพยากรณ์ในการ์ดผลการพยากรณ์ ===== */
-.band {
-  margin-top: 12px;
-  padding: 10px 12px;
-  background: #f5f7ff;
-  border: 1px solid #dfe4ff;
-  border-radius: 10px;
-}
-.band-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.band-head span:first-child { font-size: 12px; font-weight: 600; color: #465fff; }
-.band-basis { font-size: 11px; color: #98a2b3; }
-.band-range { font-size: 18px; font-weight: 650; margin-top: 4px; color: #101828; }
-.band-wide { font-size: 11.5px; color: #667085; margin-top: 3px; }
+/* ===== ผลพยากรณ์แบบช่วง =====
+   ช่วงราคายาวกว่าตัวเลขเดี่ยวมาก ต้องลดขนาดลงไม่งั้นล้นการ์ดกว้าง 440px */
+.predict-value { font-size: 26px; line-height: 1.25; }
+.predict-note { font-size: 12px; color: #667085; margin-left: 10px; font-weight: 400; }
+.band-wide { font-size: 12px; color: #667085; margin-top: 6px; }
 
 /* ===== ประวัติการทำนายย้อนหลัง ===== */
 .history-panel { margin-top: 22px; }
@@ -962,7 +954,6 @@ html:has(.page.dark), body:has(.page.dark) {
 .hl::before { content: ""; width: 14px; height: 3px; border-radius: 2px; background: currentColor; }
 .hl.band { color: #465fff; }
 .hl.band::before { height: 10px; border-radius: 3px; opacity: .3; }
-.hl.pred { color: #465fff; }
 .hl.act { color: #101828; }
 
 /* ตารางกว้างกว่าจอมือถือ ให้เลื่อนในกรอบตัวเอง ไม่ใช่ดันทั้งหน้า */
@@ -980,9 +971,8 @@ html:has(.page.dark), body:has(.page.dark) {
 .history-table tbody tr:hover { background: #f9fafb; }
 
 /* ===== ประวัติ + แถบพยากรณ์: dark mode ===== */
-.page.dark .band { background: #1a2036; border-color: #344054; }
-.page.dark .band-range { color: #f2f4f7; }
-.page.dark .band-wide { color: #98a2b3; }
+.page.dark .band-wide,
+.page.dark .predict-note { color: #98a2b3; }
 .page.dark .hs-value { color: #f2f4f7; }
 .page.dark .hs-value.warn { color: #F79009; }
 .page.dark .hs-label, .page.dark .history-legend { color: #98a2b3; }
@@ -998,5 +988,6 @@ html:has(.page.dark), body:has(.page.dark) {
   .hs-value { font-size: 15px; }
   .history-table { font-size: 12px; }
   .history-table th, .history-table td { padding: 6px; }
-  .band-range { font-size: 16px; }
+  .predict-value { font-size: 20px; }
+  .predict-note { display: block; margin-left: 0; margin-top: 2px; }
 }

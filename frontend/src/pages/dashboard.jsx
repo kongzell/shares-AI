@@ -261,7 +261,6 @@ const PredictHistory = ({ data, loading, currencyOf, darkMode }) => {
     return data.rows.map((r) => ({
       date: r.date.slice(5),
       band: r.band_low != null ? [r.band_low, r.band_high] : null,
-      predicted: r.predicted,
       actual: r.actual,
     }));
   }, [data]);
@@ -315,8 +314,7 @@ const PredictHistory = ({ data, loading, currencyOf, darkMode }) => {
       </div>
 
       <div className="history-legend">
-        <span className="hl band">แถบ {s.band_level}%</span>
-        <span className="hl pred">ทำนาย</span>
+        <span className="hl band">ช่วงที่ทำนาย {s.band_level}%</span>
         <span className="hl act">ราคาจริง</span>
       </div>
 
@@ -333,13 +331,12 @@ const PredictHistory = ({ data, loading, currencyOf, darkMode }) => {
               fontSize: 12,
             }}
             labelStyle={{ color: axisColor }}
-            formatter={(value, name) => {
-              if (Array.isArray(value)) return [`${cur}${value[0]} – ${cur}${value[1]}`, `แถบ ${s.band_level}%`];
-              return [`${cur}${value}`, name === "predicted" ? "ทำนาย" : "ราคาจริง"];
+            formatter={(value) => {
+              if (Array.isArray(value)) return [`${cur}${value[0]} – ${cur}${value[1]}`, `ช่วงที่ทำนาย ${s.band_level}%`];
+              return [`${cur}${value}`, "ราคาจริง"];
             }}
           />
-          <Area dataKey="band" stroke="none" fill="#465fff" fillOpacity={0.16} connectNulls />
-          <Line dataKey="predicted" stroke="#465fff" strokeWidth={1.6} strokeDasharray="4 3" dot={false} />
+          <Area dataKey="band" stroke="none" fill="#465fff" fillOpacity={0.18} connectNulls />
           <Line dataKey="actual" stroke={darkMode ? "#f2f4f7" : "#101828"} strokeWidth={2} dot={false} />
         </ComposedChart>
       </ResponsiveContainer>
@@ -348,28 +345,28 @@ const PredictHistory = ({ data, loading, currencyOf, darkMode }) => {
         <table className="history-table">
           <thead>
             <tr>
-              <th>วันที่</th><th>ทำนาย</th><th>จริง</th><th>คลาดเคลื่อน</th>
-              <th>ทิศทาง</th>{s.band_coverage != null && <th>แถบ {s.band_level}%</th>}
+              <th>วันที่</th><th>ช่วงที่ทำนาย ({s.band_level}%)</th><th>ราคาจริง</th>
+              {s.band_coverage != null && <th>ผล</th>}<th>ทิศทาง</th>
             </tr>
           </thead>
           <tbody>
             {[...data.rows].reverse().map((r) => (
               <tr key={r.date}>
                 <td>{r.date}</td>
-                <td>{cur}{r.predicted}</td>
-                <td>{cur}{r.actual}</td>
-                <td className={Math.abs(r.error_percent) <= 1 ? "up" : "down"}>
-                  {r.error_percent > 0 ? "+" : ""}{r.error_percent}%
+                <td>
+                  {r.band_low != null
+                    ? `${cur}${r.band_low} – ${cur}${r.band_high}`
+                    : "—"}
                 </td>
+                <td>{cur}{r.actual}</td>
+                {s.band_coverage != null && (
+                  <td className={r.in_band ? "up" : "down"}>
+                    {r.in_band ? "อยู่ในช่วง" : "หลุดช่วง"}
+                  </td>
+                )}
                 <td className={r.direction_correct ? "up" : "down"}>
                   {r.direction_correct ? "ถูก" : "ผิด"}
                 </td>
-                {s.band_coverage != null && (
-                  <td className={r.in_band ? "" : "down"}>
-                    {r.band_low != null ? `${r.band_low} – ${r.band_high}` : "—"}
-                    {r.in_band === false && " ✕"}
-                  </td>
-                )}
               </tr>
             ))}
           </tbody>
@@ -1011,22 +1008,18 @@ export default function Dashboard({ darkMode, setDarkMode }) {
               </div>
             </div>
 
-            <div className="predict-value">{symbolOf(prediction.currency)}{prediction.predicted_close_tomorrow}</div>
-            <div className={`predict-diff ${prediction.diff_percent >= 0 ? "up" : "down"}`}>
-              {prediction.diff_percent >= 0 ? "▲" : "▼"} {Math.abs(prediction.diff_percent)}%
-            </div>
-
-            {/* ช่วงที่ราคาน่าจะตกอยู่ กว้างแค่ไหนขึ้นกับว่าโมเดลเคยพลาดมากน้อยแค่ไหน */}
-            {prediction.band?.["80"] && (
-              <div className="band">
-                <div className="band-head">
-                  <span>ช่วงที่น่าจะอยู่ (80%)</span>
-                  <span className="band-basis">จาก {prediction.band_basis_days} วันหลังสุด</span>
-                </div>
-                <div className="band-range">
+            {/* แสดงเป็นช่วงอย่างเดียว ความกว้างขึ้นกับว่าโมเดลเคยพลาดมากน้อยแค่ไหน
+                ส่วนลูกศรบอกทิศทางที่โมเดลคาดไว้เทียบกับราคาปิดล่าสุด */}
+            {prediction.band?.["80"] ? (
+              <>
+                <div className="predict-value">
                   {symbolOf(prediction.currency)}{prediction.band["80"].low}
                   {" – "}
                   {symbolOf(prediction.currency)}{prediction.band["80"].high}
+                </div>
+                <div className={`predict-diff ${prediction.diff_percent >= 0 ? "up" : "down"}`}>
+                  {prediction.diff_percent >= 0 ? "▲" : "▼"} {Math.abs(prediction.diff_percent)}%
+                  <span className="predict-note">ช่วง 80% · จาก {prediction.band_basis_days} วันหลังสุด</span>
                 </div>
                 {prediction.band["90"] && (
                   <div className="band-wide">
@@ -1035,6 +1028,12 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                     {symbolOf(prediction.currency)}{prediction.band["90"].high}
                   </div>
                 )}
+              </>
+            ) : (
+              /* ข้อมูลน้อยเกินกว่าจะสร้างช่วงได้ เหลือบอกได้แค่ทิศทาง */
+              <div className={`predict-diff ${prediction.diff_percent >= 0 ? "up" : "down"}`}>
+                {prediction.diff_percent >= 0 ? "▲" : "▼"} {Math.abs(prediction.diff_percent)}%
+                <span className="predict-note">ข้อมูลไม่พอสร้างช่วง</span>
               </div>
             )}
 
@@ -1052,9 +1051,11 @@ export default function Dashboard({ darkMode, setDarkMode }) {
 
                 <div className="backtest-row">
                   <div>
-                    <div className="backtest-label">ราคาที่คาดคะเน</div>
+                    <div className="backtest-label">ช่วงที่คาดคะเน (80%)</div>
                     <div className="backtest-num">
-                      {symbolOf(prediction.currency)}{prediction.predicted_close_today}
+                      {prediction.band_today?.["80"]
+                        ? `${symbolOf(prediction.currency)}${prediction.band_today["80"].low} – ${symbolOf(prediction.currency)}${prediction.band_today["80"].high}`
+                        : "—"}
                     </div>
                   </div>
                   <div className="backtest-arrow">→</div>
@@ -1064,15 +1065,14 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                       {symbolOf(prediction.currency)}{prediction.actual_close_today}
                     </div>
                   </div>
-                  <div className="backtest-err">
-                    <div className="backtest-label">คลาดเคลื่อน</div>
-                    <div
-                      className={`backtest-num ${Math.abs(prediction.today_error_percent) <= 1 ? "good" : "bad"}`}
-                    >
-                      {prediction.today_error_percent > 0 ? "+" : ""}
-                      {prediction.today_error_percent}%
+                  {prediction.today_in_band != null && (
+                    <div className="backtest-err">
+                      <div className="backtest-label">ผล</div>
+                      <div className={`backtest-num ${prediction.today_in_band ? "good" : "bad"}`}>
+                        {prediction.today_in_band ? "อยู่ในช่วง" : "หลุดช่วง"}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             )}
