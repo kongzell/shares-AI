@@ -7,7 +7,7 @@
 
 | โฟลเดอร์ | หน้าที่ | deploy ที่ไหน |
 |---|---|---|
-| `backend/` | API (FastAPI) + โมเดลที่เทรนแล้ว | Google Cloud Run |
+| `backend/` | API (FastAPI) + โมเดลที่เทรนแล้ว | Render Free tier |
 | `frontend/` | หน้าเว็บ (React + Vite) | Cloudflare Pages |
 | `training/` | สคริปต์เทรนโมเดล | GitHub Actions (รันสัปดาห์ละครั้ง) |
 

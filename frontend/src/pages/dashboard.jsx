@@ -664,7 +664,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
             {prediction.predicted_close_today != null && (
               <div className="backtest">
                 <div className="backtest-head">
-                  <span>ทำนายราคาของวันที่ ({prediction.last_close_date})</span>
+                  <span>ผลการคาดคะเนราคาของวันที่ ({prediction.last_close_date})</span>
                   <span
                     className={`backtest-dir ${prediction.today_direction_correct ? "ok" : "miss"}`}
                   >
@@ -674,7 +674,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
 
                 <div className="backtest-row">
                   <div>
-                    <div className="backtest-label">ทำนายไว้</div>
+                    <div className="backtest-label">ราคาที่คาดคะเน</div>
                     <div className="backtest-num">
                       {symbolOf(prediction.currency)}{prediction.predicted_close_today}
                     </div>

@@ -14,9 +14,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# โดเมนที่อนุญาตให้เรียก API ได้ คั่นด้วยจุลภาคใน environment variable
-# ตอน deploy ให้ตั้ง ALLOWED_ORIGINS เป็นโดเมนของหน้าเว็บบน Cloudflare Pages
-# ถ้าไม่ได้ตั้ง จะใช้ค่าเริ่มต้นสำหรับรันที่เครื่องตัวเอง
 ALLOWED_ORIGINS = [
     origin.strip()
     for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")

@@ -1,4 +1,3 @@
-"""สร้างตาราง + user เริ่มต้น — รันครั้งเดียว: python create_user.py"""
 from database import engine, SessionLocal, Base
 import models
 from auth import hash_password
