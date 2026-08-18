@@ -686,6 +686,14 @@ html:has(.page.dark), body:has(.page.dark) {
   .backtest-row { gap: 8px; }
   .backtest-arrow { display: none; }
   .backtest-num { font-size: 14px; }
+
+  /* หัวข้อกับตัวเลือกโมเดลเรียงลงมา
+     ป้าย "เลือก Model ที่ใช้ในการคาดคะเน" กว้าง 150px และตั้ง nowrap ไว้
+     ถ้ายังวางข้างหัวข้อจะดันให้ panel กว้างเกินจอจนเลื่อนแนวนอนได้ */
+  .predict-head { flex-direction: column; align-items: stretch; gap: 10px; }
+  .model-picker { align-items: flex-start; width: 100%; }
+  .model-label { white-space: normal; }
+  .model-select { width: 100%; }
 }
 
 /* จอแคบมาก (มือถือรุ่นเล็ก) */
@@ -725,6 +733,24 @@ html:has(.page.dark), body:has(.page.dark) {
   gap: 12px;
   margin-bottom: 8px;
 }
+
+/* กล่องเลือกโมเดล: ป้ายกำกับอยู่เหนือช่องเลือก ชิดขวาให้ตรงกับตัวช่อง */
+.model-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.model-label {
+  font-size: 11px;
+  color: #98a2b3;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.page.dark .model-label { color: #98a2b3; }
 
 .model-select {
   padding: 7px 10px;

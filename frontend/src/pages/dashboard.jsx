@@ -637,16 +637,22 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                 <h3>ผลการพยากรณ์</h3>
                 <p className="muted small">ราคาปิดวันทำการถัดไป</p>
               </div>
-              <select
-                className="model-select"
-                value={modelName}
-                onChange={(e) => setModelName(e.target.value)}
-              >
-                <option value="lstm">LSTM</option>
-                <option value="gru">GRU</option>
-                <option value="tcn">TCN</option>
-                <option value="xgboost">XGBoost</option>
-              </select>
+              <div className="model-picker">
+                <label className="model-label" htmlFor="model-select">
+                  เลือก Model ที่ใช้ในการคาดคะเน
+                </label>
+                <select
+                  id="model-select"
+                  className="model-select"
+                  value={modelName}
+                  onChange={(e) => setModelName(e.target.value)}
+                >
+                  <option value="lstm">LSTM</option>
+                  <option value="gru">GRU</option>
+                  <option value="tcn">TCN</option>
+                  <option value="xgboost">XGBoost</option>
+                </select>
+              </div>
             </div>
 
             <div className="predict-value">{symbolOf(prediction.currency)}{prediction.predicted_close_tomorrow}</div>
