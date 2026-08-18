@@ -2,12 +2,12 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
-  BarChart, Bar, Cell,
+  BarChart, Bar, Cell, ComposedChart, Area, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import {
   addWatchlist, getWatchlist, removeWatchlist, getWatchlistAlerts,
-  getWatchlistNews, isLoggedIn, getUsername, logout,
+  getWatchlistNews, getPredictHistory, isLoggedIn, getUsername, logout,
 } from "../api";
 import "../App.css";
 
@@ -251,6 +251,134 @@ const NewsBoard = ({ items, loading, hasWatchlist }) => {
   );
 };
 
+/**
+ * ประวัติการทำนายย้อนหลัง 1 เดือน — กราฟเทียบทำนายกับราคาจริง แล้วต่อด้วยตาราง
+ * ตัวเลขสรุปบนหัวบอกว่าที่ผ่านมาโมเดลกับแถบพยากรณ์เชื่อได้แค่ไหนสำหรับหุ้นตัวนี้
+ */
+const PredictHistory = ({ data, loading, currencyOf, darkMode }) => {
+  const chartData = useMemo(() => {
+    if (!data?.rows) return [];
+    return data.rows.map((r) => ({
+      date: r.date.slice(5),
+      band: r.band_low != null ? [r.band_low, r.band_high] : null,
+      predicted: r.predicted,
+      actual: r.actual,
+    }));
+  }, [data]);
+
+  if (loading && !data) {
+    return (
+      <section className="panel history-panel">
+        <div className="panel-head"><h2>ประวัติย้อนหลัง 1 เดือน</h2></div>
+        <p className="muted small">กำลังคำนวณ...</p>
+      </section>
+    );
+  }
+  if (!data?.rows?.length) return null;
+
+  const s = data.summary;
+  const cur = currencyOf(data.currency);
+  const axisColor = darkMode ? "#98a2b3" : "#667085";
+  const gridColor = darkMode ? "#344054" : "#eaecf0";
+
+  return (
+    <section className="panel history-panel">
+      <div className="panel-head">
+        <div>
+          <h2>ประวัติย้อนหลัง 1 เดือน</h2>
+          <div className="muted small">
+            {data.symbol} · {data.model.toUpperCase()} · {s.count} วันทำการ ·{" "}
+            {data.rows[0].date} ถึง {data.rows[s.count - 1].date}
+          </div>
+        </div>
+        <div className="history-stats">
+          <div>
+            <div className="hs-label">คลาดเคลื่อนเฉลี่ย</div>
+            <div className="hs-value">{s.mae_percent}%</div>
+          </div>
+          <div>
+            <div className="hs-label">ทายทิศทางถูก</div>
+            <div className={`hs-value ${s.direction_accuracy >= 55 ? "good" : ""}`}>
+              {s.direction_correct}/{s.count} · {s.direction_accuracy}%
+            </div>
+          </div>
+          {s.band_coverage != null && (
+            <div>
+              <div className="hs-label">อยู่ในแถบ {s.band_level}%</div>
+              {/* ต่ำกว่าที่โฆษณาไว้มาก = แถบแคบเกินจริงสำหรับหุ้นตัวนี้ */}
+              <div className={`hs-value ${s.band_coverage >= s.band_level - 5 ? "good" : "warn"}`}>
+                {s.in_band}/{s.count} · {s.band_coverage}%
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="history-legend">
+        <span className="hl band">แถบ {s.band_level}%</span>
+        <span className="hl pred">ทำนาย</span>
+        <span className="hl act">ราคาจริง</span>
+      </div>
+
+      <ResponsiveContainer width="100%" height={240}>
+        <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
+          <XAxis dataKey="date" stroke={axisColor} tick={{ fontSize: 11 }} minTickGap={24} />
+          <YAxis stroke={axisColor} tick={{ fontSize: 11 }} domain={["auto", "auto"]} width={62} />
+          <Tooltip
+            contentStyle={{
+              background: darkMode ? "#1d2939" : "#fff",
+              border: `1px solid ${gridColor}`,
+              borderRadius: 10,
+              fontSize: 12,
+            }}
+            labelStyle={{ color: axisColor }}
+            formatter={(value, name) => {
+              if (Array.isArray(value)) return [`${cur}${value[0]} – ${cur}${value[1]}`, `แถบ ${s.band_level}%`];
+              return [`${cur}${value}`, name === "predicted" ? "ทำนาย" : "ราคาจริง"];
+            }}
+          />
+          <Area dataKey="band" stroke="none" fill="#465fff" fillOpacity={0.16} connectNulls />
+          <Line dataKey="predicted" stroke="#465fff" strokeWidth={1.6} strokeDasharray="4 3" dot={false} />
+          <Line dataKey="actual" stroke={darkMode ? "#f2f4f7" : "#101828"} strokeWidth={2} dot={false} />
+        </ComposedChart>
+      </ResponsiveContainer>
+
+      <div className="history-table-wrap">
+        <table className="history-table">
+          <thead>
+            <tr>
+              <th>วันที่</th><th>ทำนาย</th><th>จริง</th><th>คลาดเคลื่อน</th>
+              <th>ทิศทาง</th>{s.band_coverage != null && <th>แถบ {s.band_level}%</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {[...data.rows].reverse().map((r) => (
+              <tr key={r.date}>
+                <td>{r.date}</td>
+                <td>{cur}{r.predicted}</td>
+                <td>{cur}{r.actual}</td>
+                <td className={Math.abs(r.error_percent) <= 1 ? "up" : "down"}>
+                  {r.error_percent > 0 ? "+" : ""}{r.error_percent}%
+                </td>
+                <td className={r.direction_correct ? "up" : "down"}>
+                  {r.direction_correct ? "ถูก" : "ผิด"}
+                </td>
+                {s.band_coverage != null && (
+                  <td className={r.in_band ? "" : "down"}>
+                    {r.band_low != null ? `${r.band_low} – ${r.band_high}` : "—"}
+                    {r.in_band === false && " ✕"}
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+};
+
 export default function Dashboard({ darkMode, setDarkMode }) {
   const navigate = useNavigate();
   const [symbol, setSymbol] = useState("AAPL");
@@ -271,6 +399,8 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   const [watchlistLoading, setWatchlistLoading] = useState(false);
   const [news, setNews] = useState([]);
   const [newsLoading, setNewsLoading] = useState(false);
+  const [predictHistory, setPredictHistory] = useState(null);
+  const [predictHistoryLoading, setPredictHistoryLoading] = useState(false);
   const [starLoading, setStarLoading] = useState(false);
   const [showUser, setShowUser] = useState(false);
   const [username] = useState(getUsername());
@@ -334,6 +464,23 @@ export default function Dashboard({ darkMode, setDarkMode }) {
     const t = setInterval(fetchAlert, ALERT_POLL_MS);
     return () => clearInterval(t);
   }, [watchlist.length]);
+
+  // ===== ประวัติการทำนายย้อนหลัง =====
+  // ผูกกับหุ้นที่กำลังดูและโมเดลที่เลือก ฝั่ง backend cache ไว้ 1 ชม. อยู่แล้ว
+  useEffect(() => {
+    let cancelled = false;
+    const target = stock?.symbol;
+    if (!target) {
+      setPredictHistory(null);
+      return;
+    }
+    setPredictHistoryLoading(true);
+    getPredictHistory(target, modelName)
+      .then((res) => { if (!cancelled) setPredictHistory(res.data); })
+      .catch(() => { if (!cancelled) setPredictHistory(null); })
+      .finally(() => { if (!cancelled) setPredictHistoryLoading(false); });
+    return () => { cancelled = true; };
+  }, [stock?.symbol, modelName]);
 
   // ===== ข่าวของหุ้นใน watchlist =====
 
@@ -869,6 +1016,28 @@ export default function Dashboard({ darkMode, setDarkMode }) {
               {prediction.diff_percent >= 0 ? "▲" : "▼"} {Math.abs(prediction.diff_percent)}%
             </div>
 
+            {/* ช่วงที่ราคาน่าจะตกอยู่ กว้างแค่ไหนขึ้นกับว่าโมเดลเคยพลาดมากน้อยแค่ไหน */}
+            {prediction.band?.["80"] && (
+              <div className="band">
+                <div className="band-head">
+                  <span>ช่วงที่น่าจะอยู่ (80%)</span>
+                  <span className="band-basis">จาก {prediction.band_basis_days} วันหลังสุด</span>
+                </div>
+                <div className="band-range">
+                  {symbolOf(prediction.currency)}{prediction.band["80"].low}
+                  {" – "}
+                  {symbolOf(prediction.currency)}{prediction.band["80"].high}
+                </div>
+                {prediction.band["90"] && (
+                  <div className="band-wide">
+                    ถ้าเอา 90%: {symbolOf(prediction.currency)}{prediction.band["90"].low}
+                    {" – "}
+                    {symbolOf(prediction.currency)}{prediction.band["90"].high}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* ย้อนทำนายวันที่รู้คำตอบแล้ว เพื่อดูว่าโมเดลแม่นแค่ไหน */}
             {prediction.predicted_close_today != null && (
               <div className="backtest">
@@ -967,6 +1136,13 @@ export default function Dashboard({ darkMode, setDarkMode }) {
           </div>
         </div>
       )}
+
+      <PredictHistory
+        data={predictHistory}
+        loading={predictHistoryLoading}
+        currencyOf={symbolOf}
+        darkMode={darkMode}
+      />
 
       {isLoggedIn() && (
         <NewsBoard

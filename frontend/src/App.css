@@ -932,3 +932,71 @@ html:has(.page.dark), body:has(.page.dark) {
   .news-card { flex-basis: 250px; padding: 12px; }
   .news-summary { -webkit-line-clamp: 2; line-clamp: 2; }
 }
+
+/* ===== แถบพยากรณ์ในการ์ดผลการพยากรณ์ ===== */
+.band {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: #f5f7ff;
+  border: 1px solid #dfe4ff;
+  border-radius: 10px;
+}
+.band-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.band-head span:first-child { font-size: 12px; font-weight: 600; color: #465fff; }
+.band-basis { font-size: 11px; color: #98a2b3; }
+.band-range { font-size: 18px; font-weight: 650; margin-top: 4px; color: #101828; }
+.band-wide { font-size: 11.5px; color: #667085; margin-top: 3px; }
+
+/* ===== ประวัติการทำนายย้อนหลัง ===== */
+.history-panel { margin-top: 22px; }
+.history-panel .panel-head { flex-wrap: wrap; gap: 14px; }
+
+.history-stats { display: flex; gap: 22px; flex-wrap: wrap; }
+.hs-label { font-size: 11px; color: #667085; }
+.hs-value { font-size: 17px; font-weight: 650; color: #101828; }
+.hs-value.good { color: #1D9E75; }
+.hs-value.warn { color: #B54708; }
+
+.history-legend { display: flex; gap: 16px; font-size: 12px; color: #667085; margin-bottom: 6px; }
+.hl { display: inline-flex; align-items: center; gap: 6px; }
+.hl::before { content: ""; width: 14px; height: 3px; border-radius: 2px; background: currentColor; }
+.hl.band { color: #465fff; }
+.hl.band::before { height: 10px; border-radius: 3px; opacity: .3; }
+.hl.pred { color: #465fff; }
+.hl.act { color: #101828; }
+
+/* ตารางกว้างกว่าจอมือถือ ให้เลื่อนในกรอบตัวเอง ไม่ใช่ดันทั้งหน้า */
+.history-table-wrap { margin-top: 12px; max-height: 320px; overflow: auto; }
+
+.history-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.history-table th {
+  position: sticky; top: 0;
+  background: #fff;
+  text-align: right; font-weight: 500; font-size: 11.5px; color: #98a2b3;
+  padding: 7px 8px; border-bottom: 1px solid #eaecf0;
+}
+.history-table th:first-child, .history-table td:first-child { text-align: left; }
+.history-table td { text-align: right; padding: 7px 8px; border-bottom: 1px solid #f2f4f7; white-space: nowrap; }
+.history-table tbody tr:hover { background: #f9fafb; }
+
+/* ===== ประวัติ + แถบพยากรณ์: dark mode ===== */
+.page.dark .band { background: #1a2036; border-color: #344054; }
+.page.dark .band-range { color: #f2f4f7; }
+.page.dark .band-wide { color: #98a2b3; }
+.page.dark .hs-value { color: #f2f4f7; }
+.page.dark .hs-value.warn { color: #F79009; }
+.page.dark .hs-label, .page.dark .history-legend { color: #98a2b3; }
+.page.dark .hl.act { color: #f2f4f7; }
+.page.dark .history-table th { background: #1d2939; border-color: #344054; color: #667085; }
+.page.dark .history-table td { border-color: #344054; }
+.page.dark .history-table tbody tr:hover { background: #101828; }
+
+/* ===== ประวัติ: จอเล็ก ===== */
+@media (max-width: 700px) {
+  .history-panel { margin-top: 16px; }
+  .history-stats { gap: 14px; }
+  .hs-value { font-size: 15px; }
+  .history-table { font-size: 12px; }
+  .history-table th, .history-table td { padding: 6px; }
+  .band-range { font-size: 16px; }
+}

@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from pathlib import Path
 import numpy as np
+import threading
+import time
 import yfinance as yf
 import pandas as pd
 import onnxruntime as ort
@@ -26,14 +28,34 @@ xgb_model = xgb.Booster()
 xgb_model.load_model(str(MODEL_DIR / "xgboost_model.json"))
 LOOKBACK = 30
 
+# ===== แถบพยากรณ์และประวัติย้อนหลัง =====
+# แถบสร้างด้วย split conformal: เอา residual จากการย้อนทำนายในอดีตมาหา quantile
+# ไม่ต้องแตะโมเดล ใช้ได้กับทั้ง 4 ตัวด้วยโค้ดชุดเดียว
+CAL_WINDOW = 120           # จำนวน residual ที่ใช้สร้างแถบ
+MIN_CAL_WINDOW = 40        # ต่ำกว่านี้ quantile แกว่งจนแถบเชื่อไม่ได้ ให้ซ่อนแถบแทน
+HISTORY_DAYS = 21          # 1 เดือน ≈ 21 วันทำการ
+BAND_LEVELS = {80: (10, 90), 90: (5, 95)}
+BACKTEST_TTL_SEC = 60 * 60  # แท่งรายวันเปลี่ยนวันละครั้ง ไม่ต้องคำนวณใหม่ทุก request
+
+_backtest_cache = {}
+_backtest_lock = threading.Lock()
+
+_currency_cache = {}
+
+
 def get_currency(symbol: str) -> str:
-    """ดึงสกุลเงินของหุ้น (THB, USD, ...)"""
+    """ดึงสกุลเงินของหุ้น (THB, USD, ...) — จำไว้เพราะไม่เปลี่ยนและต้องยิง yfinance"""
+    key = symbol.upper()
+    if key in _currency_cache:
+        return _currency_cache[key]
     try:
         info = yf.Ticker(symbol).fast_info
-        return info.get("currency", "USD")
+        currency = info.get("currency", "USD")
     except Exception:
         # fallback: เดาจากนามสกุล
-        return "THB" if symbol.upper().endswith(".BK") else "USD"
+        currency = "THB" if key.endswith(".BK") else "USD"
+    _currency_cache[key] = currency
+    return currency
 
 def to_thai_time(data):
     """แปลง index เป็นเวลาไทย (กันกรณีไม่มี timezone)"""
@@ -217,16 +239,145 @@ def predict_return(returns, model_name: str) -> float:
                         detail="model_name ต้องเป็น lstm, gru, tcn หรือ xgboost")
 
 
-@router.get("/predict/{symbol}")
-def predict_stock(symbol: str, model_name: str = "lstm"):
-    daily, symbol = download_symbol(symbol, period="60d", interval="1d",
-                                    auto_adjust=True)
+def run_backtest(symbol: str, model_name: str):
+    """
+    ย้อนทำนายราคาปิดของทุกวันที่ทำได้ในข้อมูล 1 ปี แล้วเก็บ residual ไว้
+
+    วันที่ i ใช้ข้อมูลถึง returns[:i] เท่านั้น (ราคาปิดล่าสุดที่รู้คือ closes[i])
+    ทำนายราคาปิดของวัน i+1 โมเดลจึงไม่เคยเห็นเฉลยของวันที่กำลังทำนาย
+
+    ผลลัพธ์ใช้ร่วมกันทั้งแถบพยากรณ์และประวัติย้อนหลัง จึงคำนวณครั้งเดียวแล้ว cache
+    คืน None ถ้าหาหุ้นไม่เจอ
+    """
+    key = (symbol.strip().upper(), model_name)
+    now = time.time()
+    with _backtest_lock:
+        hit = _backtest_cache.get(key)
+        if hit and now - hit[0] < BACKTEST_TTL_SEC:
+            return hit[1]
+
+    daily, resolved = download_symbol(symbol, period="1y", interval="1d",
+                                      auto_adjust=True)
     if daily is None:
-        raise HTTPException(status_code=404, detail=f"ไม่พบข้อมูลหุ้น {symbol}")
+        return None
 
     daily = flatten_columns(daily)
+    closes = daily["Close"].values
     returns = daily["Close"].pct_change().dropna().values
-    daily_close = float(daily["Close"].iloc[-1])
+    if len(returns) < LOOKBACK:
+        return None
+
+    dates, predicted, actual, residuals = [], [], [], []
+    for i in range(LOOKBACK, len(returns)):
+        # แปลงเป็น float ของ python ตรงนี้เลย ไม่งั้น np.float64 จะลาม
+        # ไปทำให้ผลเปรียบเทียบกลายเป็น np.bool_ ซึ่ง JSON แปลงไม่ได้
+        pred = float(closes[i] * (1 + predict_return(returns[:i], model_name)))
+        dates.append(daily.index[i + 1].strftime("%Y-%m-%d"))
+        predicted.append(pred)
+        actual.append(float(closes[i + 1]))
+        residuals.append((pred - closes[i + 1]) / closes[i + 1] * 100)
+
+    result = {
+        "symbol": resolved.upper(),
+        "dates": dates,
+        "predicted": predicted,
+        "actual": actual,
+        "residuals": np.array(residuals),
+        "closes": closes,
+        "returns": returns,
+        "last_date": daily.index[-1].strftime("%Y-%m-%d"),
+    }
+
+    with _backtest_lock:
+        _backtest_cache[key] = (now, result)
+    return result
+
+
+def make_band(residuals, predicted, level: int):
+    """
+    แปลง residual ในอดีตเป็นช่วงราคารอบค่าที่ทำนาย
+
+    residual = (ทำนาย - จริง) / จริง ดังนั้น จริง = ทำนาย / (1 + residual/100)
+    quantile บนของ residual (ทำนายเกินมากสุด) จึงให้ขอบล่างของราคา และกลับกัน
+    คืน None ถ้า residual น้อยเกินกว่าจะหา quantile ได้อย่างมีความหมาย
+    """
+    if len(residuals) < MIN_CAL_WINDOW:
+        return None
+    lo_q, hi_q = BAND_LEVELS[level]
+    lo_res, hi_res = np.percentile(residuals, [lo_q, hi_q])
+    return {
+        "low": round(float(predicted / (1 + hi_res / 100)), 2),
+        "high": round(float(predicted / (1 + lo_res / 100)), 2),
+    }
+
+
+@router.get("/predict/history/{symbol}")
+def predict_history(symbol: str, model_name: str = "lstm", days: int = HISTORY_DAYS):
+    """ประวัติการทำนายย้อนหลัง พร้อมสรุปว่าที่ผ่านมาแม่นแค่ไหน"""
+    days = max(5, min(days, 60))
+    data = run_backtest(symbol, model_name)
+    if data is None:
+        raise HTTPException(status_code=404, detail=f"ไม่พบข้อมูลหุ้น {symbol}")
+
+    residuals = data["residuals"]
+    total = len(residuals)
+    if total <= 1:
+        raise HTTPException(status_code=400, detail="ข้อมูลไม่พอสำหรับสร้างประวัติ")
+
+    days = min(days, total)
+    # แถบของแต่ละวันต้องสร้างจาก residual ที่เกิดก่อนวันนั้นเท่านั้น ไม่งั้นเป็นการมองอนาคต
+    cal = min(CAL_WINDOW, total - days)
+
+    rows = []
+    for t in range(total - days, total):
+        band = make_band(residuals[max(0, t - cal):t], data["predicted"][t], 80)
+        pred, act = data["predicted"][t], data["actual"][t]
+        # ราคาปิดของวันก่อนหน้า = ฐานที่ใช้ตัดสินว่าทายขึ้นหรือลง
+        base = float(data["closes"][t + LOOKBACK])
+        row = {
+            "date": data["dates"][t],
+            "predicted": round(pred, 2),
+            "actual": round(act, 2),
+            "error_percent": round((pred - act) / act * 100, 2),
+            "direction_correct": bool((pred >= base) == (act >= base)),
+        }
+        if band:
+            row.update({"band_low": band["low"], "band_high": band["high"],
+                        "in_band": bool(band["low"] <= act <= band["high"])})
+        rows.append(row)
+
+    scored = [r for r in rows if "in_band" in r]
+    summary = {
+        "count": len(rows),
+        "mae_percent": round(float(np.mean([abs(r["error_percent"]) for r in rows])), 2),
+        "direction_correct": int(sum(r["direction_correct"] for r in rows)),
+        "direction_accuracy": round(
+            sum(r["direction_correct"] for r in rows) / len(rows) * 100, 1),
+        "band_level": 80,
+        "in_band": int(sum(r["in_band"] for r in scored)) if scored else None,
+        "band_coverage": round(sum(r["in_band"] for r in scored) / len(scored) * 100, 1)
+        if scored else None,
+        "calibration_days": cal if scored else None,
+    }
+
+    return {
+        "symbol": data["symbol"],
+        "model": model_name,
+        "currency": get_currency(data["symbol"]),
+        "rows": rows,
+        "summary": summary,
+    }
+
+
+@router.get("/predict/{symbol}")
+def predict_stock(symbol: str, model_name: str = "lstm"):
+    # ใช้ผลย้อนทำนายชุดเดียวกับประวัติ จะได้ไม่ต้องโหลดและคำนวณซ้ำ
+    data = run_backtest(symbol, model_name)
+    if data is None:
+        raise HTTPException(status_code=404, detail=f"ไม่พบข้อมูลหุ้น {symbol}")
+
+    closes, returns = data["closes"], data["returns"]
+    daily_close = float(closes[-1])
 
     if len(returns) < LOOKBACK:
         raise HTTPException(status_code=400, detail="ข้อมูลไม่พอสำหรับทำนาย")
@@ -236,28 +387,34 @@ def predict_stock(symbol: str, model_name: str = "lstm"):
     predicted = daily_close * (1 + pred_return)
 
     result = {
-        "symbol": symbol.upper(),
+        "symbol": data["symbol"],
         "model": model_name,
         "last_close": round(daily_close, 2),
-        "last_close_date": daily.index[-1].strftime("%Y-%m-%d"),
+        "last_close_date": data["last_date"],
         "predicted_close_tomorrow": round(predicted, 2),
         "diff_percent": round(pred_return * 100, 3),
-        "currency": get_currency(symbol),
+        "currency": get_currency(data["symbol"]),
     }
 
+    # ===== แถบพยากรณ์จาก residual ล่าสุด =====
+    recent = data["residuals"][-CAL_WINDOW:]
+    bands = {level: make_band(recent, predicted, level) for level in BAND_LEVELS}
+    if bands[80]:
+        result["band"] = {str(level): b for level, b in bands.items() if b}
+        result["band_basis_days"] = len(recent)
+
     # ===== ย้อนทำนายราคาปิดของวันล่าสุด แล้วเทียบกับราคาจริง =====
-    # ใช้ข้อมูลถึงวันก่อนหน้าเท่านั้น (ตัด return ตัวสุดท้ายทิ้ง) โมเดลจึงไม่เห็นเฉลย
-    if len(returns) >= LOOKBACK + 1:
-        prev_close = float(daily["Close"].iloc[-2])
-        today_return = predict_return(returns[:-1], model_name)
-        predicted_today = prev_close * (1 + today_return)
+    # ค่านี้มาจาก run_backtest ซึ่งใช้ข้อมูลถึงวันก่อนหน้าเท่านั้น โมเดลจึงไม่เห็นเฉลย
+    if data["predicted"]:
+        predicted_today = data["predicted"][-1]
+        prev_close = float(closes[-2])
         error = (predicted_today - daily_close) / daily_close * 100
 
         result.update({
             "predicted_close_today": round(predicted_today, 2),
             "actual_close_today": round(daily_close, 2),
             "today_error_percent": round(error, 3),
-            "today_direction_correct": (predicted_today >= prev_close) == (daily_close >= prev_close),
+            "today_direction_correct": bool((predicted_today >= prev_close) == (daily_close >= prev_close)),
         })
 
     return result

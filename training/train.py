@@ -36,9 +36,10 @@ from tcn import TCN  # noqa: E402
 from xgboost import XGBRegressor  # noqa: E402
 
 # ===== ค่าคงที่ ต้องตรงกับที่ backend/routers/stocks.py ใช้ตอนทำนาย =====
-SYMBOLS = ["AAPL", "MSFT", "GOOGL", "TSLA", "NVDA", "COIN", "PLTR", "MARA", "BTC-USD"]
+SYMBOLS = ["AAPL", "MSFT", "GOOGL", "TSLA", "NVDA", "COIN", "PLTR", "MARA", "BTC-USD", "DELTA.BK", "KBANK.BK", 
+           "PTT.BK", "AOT.BK", "CPALL.BK", "SCB.BK", "BAM.BK"]
 LOOKBACK = 30                 # ต้องเท่ากับ LOOKBACK ใน stocks.py
-XGB_FEATURES = ["Return", "MA7", "MA30", "Prev_Return"]   # ต้องเรียงตรงกับตอนทำนาย
+XGB_FEATURES = ["Return", "MA7", "MA30", "Prev_Return"]
 START_DATE = "2022-01-01"
 EPOCHS = 10
 BATCH_SIZE = 32
