@@ -1229,3 +1229,12 @@ html:has(.page.dark), body:has(.page.dark) {
 
 /* ปุ่มในหัวหน้าต่างเต็มจอ */
 .expand-actions { display: flex; align-items: center; gap: 10px; flex: none; }
+
+/* วันที่กำกับใต้ชื่อรายการใน kv (เช่น "ตั้งแต่ 2025-08-19") */
+.kv-note { display: block; font-size: 10.5px; color: #98a2b3; margin-top: 1px; }
+.page.dark .kv-note { color: #667085; }
+/* .kv b ระบุสีไว้แล้ว ต้องเจาะจงกว่าเดิม ไม่งั้นสีเขียว/แดงจะถูกทับ */
+.kv b.up { color: #039855; }
+.kv b.down { color: #d92d20; }
+.page.dark .kv b.up { color: #6ce9a6; }
+.page.dark .kv b.down { color: #fda29b; }

@@ -25,10 +25,12 @@ const QUICK_STOCKS = [
   "BTC-USD" // Bitcoin
 ];
 // แต่ละช่วงใช้ความละเอียดของแท่งต่างกัน ให้จำนวนแท่งพอเหมาะกับความกว้างกราฟ
+// days ของ backend นับเป็น "จำนวนแท่ง" ไม่ใช่วันตามปฏิทิน — 250 แท่งรายวัน = 0.99 ปีพอดี
 const RANGES = {
   today: { label: "Today", days: 1, interval: "5m" },
   week:  { label: "Week",  days: 7, interval: "30m" },
-  month: { label: "Month", days: 30, interval: "1d" },
+  month: { label: "Month", days: 30, interval: "1h" },
+  year:  { label: "Year",  days: 250, interval: "1d" },
 };
 
 const UP = "#1D9E75";
@@ -1121,6 +1123,20 @@ export default function Dashboard({ darkMode, setDarkMode }) {
     });
   }, [history]);
 
+  // ผลตอบแทนตลอดช่วงที่กำลังดูอยู่ คิดจากข้อมูลกราฟชุดเดียวกับที่วาด
+  // ตัวเลขจึงตรงกับที่ตาเห็นเสมอ และเปลี่ยนตามปุ่ม Today/Week/Month/Year
+  // ใช้ราคาเปิดของแท่งแรก (จุดเริ่มของหน้าต่าง) เทียบกับราคาปิดของแท่งสุดท้าย
+  const rangeChange = useMemo(() => {
+    if (history.length < 2) return null;
+    const from = history[0].open;
+    const to = history[history.length - 1].close;
+    if (!from) return null;
+    return {
+      percent: Math.round((to / from - 1) * 10000) / 100,
+      since: history[0].datetime,
+    };
+  }, [history]);
+
   // ค่า RSI ล่าสุดที่คำนวณได้ ใช้โชว์ตัวเลขกำกับหัวกราฟ
   const latestRsi = useMemo(() => {
     for (let i = chartData.length - 1; i >= 0; i--) {
@@ -1610,6 +1626,21 @@ export default function Dashboard({ darkMode, setDarkMode }) {
             <div className="divider" />
 
             <div className="kv"><span>ราคาปิดล่าสุด</span><b>{symbolOf(prediction.currency)}{prediction.last_close}</b></div>
+
+            {/* เปลี่ยนตามช่วงที่เลือกบนกราฟ กำกับวันเริ่มไว้เพราะจำนวนแท่งที่ได้จริง
+                อาจสั้นกว่าที่ขอ (หุ้นเข้าใหม่ หรือวันหยุดยาว) */}
+            {rangeChange && (
+              <div className="kv">
+                <span>
+                  เปลี่ยนแปลง {RANGES[range].label}
+                  <span className="kv-note">ตั้งแต่ {rangeChange.since}</span>
+                </span>
+                <b className={rangeChange.percent >= 0 ? "up" : "down"}>
+                  {rangeChange.percent >= 0 ? "▲" : "▼"} {Math.abs(rangeChange.percent)}%
+                </b>
+              </div>
+            )}
+
             <div className="kv"><span>โมเดล</span><b>{prediction.model.toUpperCase()}</b></div>
             <div className="kv"><span>ข้อมูลล่าสุด</span><b>{stock.updated_at}</b></div>
             <div className="kv">
