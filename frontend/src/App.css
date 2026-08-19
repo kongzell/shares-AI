@@ -1019,3 +1019,62 @@ html:has(.page.dark), body:has(.page.dark) {
 .page.dark .ema-toggle { background: #1d2939; border-color: #344054; color: #98a2b3; }
 .page.dark .ema-toggle.on { border-color: #465fff; color: #8ba0ff; background: #1a2036; }
 .page.dark .candle-tip-sep { background: #344054; }
+
+/* ===== Watchlist: แสดง 4 รายการ เกินกว่านั้นเลื่อนดู ===== */
+/* หนึ่งรายการสูง 35px (ปุ่มชื่อ padding 9+9 + บรรทัด 17) → 4 รายการ = 140px */
+.watchlist-list {
+  max-height: 140px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #d0d5dd transparent;
+  overscroll-behavior-y: contain;
+}
+.watchlist-list::-webkit-scrollbar { width: 6px; }
+.watchlist-list::-webkit-scrollbar-track { background: transparent; }
+.watchlist-list::-webkit-scrollbar-thumb { background: #d0d5dd; border-radius: 999px; }
+.page.dark .watchlist-list { scrollbar-color: #475467 transparent; }
+.page.dark .watchlist-list::-webkit-scrollbar-thumb { background: #475467; }
+
+/* ===== ปุ่มพับ/กางประวัติย้อนหลัง ===== */
+.history-title { display: flex; align-items: center; gap: 10px; }
+
+.collapse-btn {
+  border: 1px solid #d0d5dd;
+  background: #fff;
+  color: #667085;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color .15s, color .15s;
+}
+.collapse-btn:hover { border-color: #465fff; color: #465fff; }
+.page.dark .collapse-btn { background: #1d2939; border-color: #344054; color: #98a2b3; }
+.page.dark .collapse-btn:hover { border-color: #465fff; color: #8ba0ff; }
+
+/* ===== หัวกราฟ RSI ===== */
+.rsi-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.rsi-now {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 650;
+  color: #667085;
+}
+.rsi-now.hot { color: #d92d20; }
+.rsi-now.cold { color: #039855; }
+.rsi-zone-text { font-size: 11px; font-weight: 400; color: #98a2b3; }
+
+.page.dark .rsi-now { color: #98a2b3; }
+.page.dark .rsi-now.hot { color: #fda29b; }
+.page.dark .rsi-now.cold { color: #6ce9a6; }
+.page.dark .rsi-zone-text { color: #667085; }

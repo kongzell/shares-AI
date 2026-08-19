@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
-  BarChart, Bar, Cell, ComposedChart, Area, Line,
+  BarChart, Bar, Cell, ComposedChart, Area, Line, ReferenceLine,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import {
@@ -108,6 +108,56 @@ const emaSeries = (values, period) => {
     out.push(prev);
   }
   return out;
+};
+
+// ค่ามาตรฐานของ RSI — 14 คาบ เส้นเตือนที่ 70 (ซื้อมากเกิน) และ 30 (ขายมากเกิน)
+const RSI_PERIOD = 14;
+const RSI_OVERBOUGHT = 70;
+const RSI_OVERSOLD = 30;
+// น้ำเงินหลักของแอปตัดกับพื้นมืดได้แค่ 3.04 บางเกินไปสำหรับเส้น จึงใช้เฉดอ่อนกว่าในโหมดมืด
+const RSI_LINE = { light: "#465fff", dark: "#8ba0ff" };
+
+/**
+ * RSI ตามสูตรของ Wilder
+ * ค่าตั้งต้นใช้ค่าเฉลี่ยธรรมดาของ 14 คาบแรก จากนั้นถัวเฉลี่ยแบบ Wilder (หาร period ไม่ใช่ period+1)
+ *
+ * ใช้ราคาปิด "จริง" เท่านั้น ห้ามใช้ราคาที่ถูกเลื่อนปิดช่องว่าง
+ * เพราะ RSI คิดจากผลต่างระหว่างแท่ง การเลื่อนจะไปลบผลต่างตรงรอยต่อรอบซื้อขายทิ้ง
+ */
+const rsiSeries = (closes, period = RSI_PERIOD) => {
+  const out = new Array(closes.length).fill(null);
+  if (closes.length <= period) return out;
+
+  let avgGain = 0;
+  let avgLoss = 0;
+  for (let i = 1; i <= period; i++) {
+    const diff = closes[i] - closes[i - 1];
+    if (diff >= 0) avgGain += diff;
+    else avgLoss -= diff;
+  }
+  avgGain /= period;
+  avgLoss /= period;
+
+  const toRsi = (gain, loss) =>
+    loss === 0 ? 100 : Math.round((100 - 100 / (1 + gain / loss)) * 100) / 100;
+
+  out[period] = toRsi(avgGain, avgLoss);
+  for (let i = period + 1; i < closes.length; i++) {
+    const diff = closes[i] - closes[i - 1];
+    const gain = diff > 0 ? diff : 0;
+    const loss = diff < 0 ? -diff : 0;
+    avgGain = (avgGain * (period - 1) + gain) / period;
+    avgLoss = (avgLoss * (period - 1) + loss) / period;
+    out[i] = toRsi(avgGain, avgLoss);
+  }
+  return out;
+};
+
+/** RSI อยู่โซนไหน ใช้เลือกสีป้ายกำกับ */
+const rsiZone = (value) => {
+  if (value >= RSI_OVERBOUGHT) return "hot";
+  if (value <= RSI_OVERSOLD) return "cold";
+  return "";
 };
 
 /** อายุข่าวเป็นชั่วโมง → ข้อความไทยแบบย่อ */
@@ -292,6 +342,7 @@ const NewsBoard = ({ items, loading, hasWatchlist }) => {
  * ตัวเลขสรุปบนหัวบอกว่าที่ผ่านมาโมเดลกับแถบพยากรณ์เชื่อได้แค่ไหนสำหรับหุ้นตัวนี้
  */
 const PredictHistory = ({ data, loading, currencyOf, darkMode }) => {
+  const [open, setOpen] = useState(true);
   const chartData = useMemo(() => {
     if (!data?.rows) return [];
     return data.rows.map((r) => ({
@@ -320,7 +371,16 @@ const PredictHistory = ({ data, loading, currencyOf, darkMode }) => {
     <section className="panel history-panel">
       <div className="panel-head">
         <div>
-          <h2>ประวัติย้อนหลัง 1 เดือน</h2>
+          <div className="history-title">
+            <h2>ประวัติย้อนหลัง 1 เดือน</h2>
+            <button
+              className="collapse-btn"
+              onClick={() => setOpen((v) => !v)}
+              aria-expanded={open}
+            >
+              {open ? "▾ ซ่อน" : "▸ แสดง"}
+            </button>
+          </div>
           <div className="muted small">
             {data.symbol} · {data.model.toUpperCase()} · {s.count} วันทำการ ·{" "}
             {data.rows[0].date} ถึง {data.rows[s.count - 1].date}
@@ -349,6 +409,9 @@ const PredictHistory = ({ data, loading, currencyOf, darkMode }) => {
         </div>
       </div>
 
+      {/* ปิดแล้วเหลือแค่หัวข้อกับตัวเลขสรุป ซึ่งเป็นส่วนที่มีค่าที่สุดอยู่แล้ว */}
+      {!open ? null : (
+      <>
       <div className="history-legend">
         <span className="hl band">ช่วงที่ทำนาย {s.band_level}%</span>
         <span className="hl act">ราคาจริง</span>
@@ -407,6 +470,8 @@ const PredictHistory = ({ data, loading, currencyOf, darkMode }) => {
           </tbody>
         </table>
       </div>
+      </>
+      )}
     </section>
   );
 };
@@ -708,6 +773,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
     const emas = Object.fromEntries(
       EMA_PERIODS.map((p) => [p, emaSeries(closes, p)])
     );
+    const rsi = rsiSeries(closes);
 
     return history.map((d, i) => {
       const shift = offsets[i] - base;
@@ -729,9 +795,18 @@ export default function Dashboard({ darkMode, setDarkMode }) {
         row[`ema${p}`] = v == null ? null : adj(v);
         row[`realEma${p}`] = v == null ? null : Math.round(v * 100) / 100;
       }
+      row.rsi = rsi[i];
       return row;
     });
   }, [history]);
+
+  // ค่า RSI ล่าสุดที่คำนวณได้ ใช้โชว์ตัวเลขกำกับหัวกราฟ
+  const latestRsi = useMemo(() => {
+    for (let i = chartData.length - 1; i >= 0; i--) {
+      if (chartData[i].rsi != null) return chartData[i].rsi;
+    }
+    return null;
+  }, [chartData]);
 
   const tooltipStyle = darkMode
     ? {
@@ -1066,6 +1141,56 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                   ))}
                 </Bar>
               </BarChart>
+            </ResponsiveContainer>
+
+            {/* ===== กราฟ RSI ===== */}
+            <div className="rsi-head">
+              <span className="volume-label">RSI ({RSI_PERIOD})</span>
+              {latestRsi != null && (
+                <span className={`rsi-now ${rsiZone(latestRsi)}`}>
+                  {latestRsi}
+                  <span className="rsi-zone-text">
+                    {latestRsi >= RSI_OVERBOUGHT
+                      ? "ซื้อมากเกินไป"
+                      : latestRsi <= RSI_OVERSOLD
+                      ? "ขายมากเกินไป"
+                      : "ปกติ"}
+                  </span>
+                </span>
+              )}
+            </div>
+            <ResponsiveContainer width="100%" height={130}>
+              <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <XAxis dataKey="datetime" hide />
+                {/* ล็อกแกนไว้ 0-100 เสมอ ไม่ให้ recharts ปรับสเกลตามข้อมูล
+                    เพราะระดับ 70/30 จะเลื่อนตำแหน่งจนอ่านผิด */}
+                <YAxis
+                  domain={[0, 100]}
+                  ticks={[0, RSI_OVERSOLD, 50, RSI_OVERBOUGHT, 100]}
+                  tick={{ fontSize: 10, fill: "#98a2b3" }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={55}
+                />
+                <Tooltip
+                  formatter={(v) => [v, `RSI ${RSI_PERIOD}`]}
+                  contentStyle={tooltipStyle}
+                  labelStyle={{ color: darkMode ? "#f2f4f7" : "#101828", fontWeight: 500 }}
+                  itemStyle={{ color: "#465fff" }}
+                  cursor={{ stroke: darkMode ? "#475467" : "#d0d5dd" }}
+                />
+                {/* ทะลุ 70 ขึ้นไป = คนซื้อมากเกิน / ต่ำกว่า 30 = คนขายมากเกิน */}
+                <ReferenceLine y={RSI_OVERBOUGHT} stroke={DOWN} strokeDasharray="5 4" strokeWidth={1} />
+                <ReferenceLine y={RSI_OVERSOLD} stroke={UP} strokeDasharray="5 4" strokeWidth={1} />
+                <Line
+                  dataKey="rsi"
+                  stroke={RSI_LINE[darkMode ? "dark" : "light"]}
+                  strokeWidth={1.6}
+                  dot={false}
+                  isAnimationActive={false}
+                  connectNulls={false}
+                />
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
 
