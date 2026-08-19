@@ -1020,13 +1020,6 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                   {prediction.diff_percent >= 0 ? "▲" : "▼"} {Math.abs(prediction.diff_percent)}%
                   <span className="predict-note">ช่วง 80% · จาก {prediction.band_basis_days} วันหลังสุด</span>
                 </div>
-                {prediction.band["90"] && (
-                  <div className="band-wide">
-                    ถ้าเอา 90%: {symbolOf(prediction.currency)}{prediction.band["90"].low}
-                    {" – "}
-                    {symbolOf(prediction.currency)}{prediction.band["90"].high}
-                  </div>
-                )}
               </>
             ) : (
               /* ข้อมูลน้อยเกินกว่าจะสร้างช่วงได้ เหลือบอกได้แค่ทิศทาง */
