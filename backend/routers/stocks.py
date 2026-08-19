@@ -143,7 +143,8 @@ def latest_session_only(data):
 
 
 @router.get("/stock/{symbol}/history")
-def get_history(symbol: str, days: int = 5, interval: str = "30m"):
+def get_history(symbol: str, days: int = 5, interval: str = "30m",
+                start: str | None = None, end: str | None = None):
     if interval not in ALLOWED_INTERVALS:
         raise HTTPException(
             status_code=400,
@@ -152,19 +153,35 @@ def get_history(symbol: str, days: int = 5, interval: str = "30m"):
 
     is_intraday = interval.endswith(("m", "h"))
 
-    # yfinance นับ period="1d" เป็น "ย้อนหลัง 24 ชั่วโมงจากตอนนี้" ไม่ใช่ "วันทำการล่าสุด"
-    # ตลาดที่เพิ่งเปิด (เช่น SET ตอนเช้า) จึงได้ข้อมูลว่างเปล่า
-    fetch_days = max(days, 2)
-    data, symbol = download_symbol(symbol, period=f"{fetch_days}d", interval=interval,
-                                   auto_adjust=True)
-    if data is None:
-        raise HTTPException(status_code=404, detail=f"ไม่พบข้อมูลหุ้น {symbol}")
+    if start:
+        # โหมดเลือกช่วงวันที่ (ใช้กับมุมมองรายเดือน)
+        # yfinance เก็บแท่งย่อยได้จำกัด: 30m ~60 วัน, 1h ~2 ปี ส่วน 1d ย้อนได้ไกล
+        # เดือนที่เก่าเกินกว่านั้นจะได้ข้อมูลว่าง จึงถอยไปใช้แท่งรายวันแทน
+        data, symbol = download_symbol(symbol, start=start, end=end,
+                                       interval=interval, auto_adjust=True)
+        if data is None and interval != "1d":
+            interval = "1d"
+            is_intraday = False
+            data, symbol = download_symbol(symbol, start=start, end=end,
+                                           interval="1d", auto_adjust=True)
+        if data is None:
+            raise HTTPException(status_code=404,
+                                detail=f"ไม่มีข้อมูล {symbol} ในช่วงที่ขอ")
+        data = flatten_columns(data)
+    else:
+        # yfinance นับ period="1d" เป็น "ย้อนหลัง 24 ชั่วโมงจากตอนนี้" ไม่ใช่ "วันทำการล่าสุด"
+        # ตลาดที่เพิ่งเปิด (เช่น SET ตอนเช้า) จึงได้ข้อมูลว่างเปล่า
+        fetch_days = max(days, 2)
+        data, symbol = download_symbol(symbol, period=f"{fetch_days}d", interval=interval,
+                                       auto_adjust=True)
+        if data is None:
+            raise HTTPException(status_code=404, detail=f"ไม่พบข้อมูลหุ้น {symbol}")
 
-    data = flatten_columns(data)
+        data = flatten_columns(data)
 
     # ตัดให้เหลือรอบซื้อขายล่าสุด โดยใช้วันที่ตาม "เวลาตลาดต้นทาง" ที่ yfinance ส่งมา
     # ต้องทำก่อนแปลงเป็นเวลาไทย เพราะรอบของตลาดสหรัฐคาบเกี่ยวเที่ยงคืนตามเวลาไทย
-    if days == 1 and is_intraday:
+    if not start and days == 1 and is_intraday:
         data = latest_session_only(data)
 
         # ต้นรอบซื้อขาย (ยิ่งเจอ yfinance ที่ดีเลย์ 15-30 นาที) จะได้แท่งน้อยมาก

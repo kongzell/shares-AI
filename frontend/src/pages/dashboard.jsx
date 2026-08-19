@@ -153,6 +153,64 @@ const rsiSeries = (closes, period = RSI_PERIOD) => {
   return out;
 };
 
+// มุมมองเต็มจอรายเดือน
+const EXPAND_MONTHS = 12;        // จำนวนเดือนย้อนหลังในแถบเลือก
+const EXPAND_PX_PER_BAR = 13;    // ความกว้างต่อแท่ง ใช้กำหนดว่าต้องเลื่อนไกลแค่ไหน
+const EXPAND_Y_AXIS_W = 62;      // ต้องตรงกับ width ของ YAxis ไม่งั้นแถบวันจะเหลื่อม
+const EXPAND_RIGHT_PAD = 12;     // ต้องตรงกับ margin.right ของกราฟ
+const EXPAND_TIP_W = 150;        // ล็อกความกว้าง tooltip ไว้ จะได้คำนวณการพลิกด้านได้
+const THAI_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
+                     "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+
+/** รายการเดือนย้อนหลัง ใหม่สุดอยู่ท้าย เพื่อให้เลื่อนไปขวาสุด = เดือนปัจจุบัน */
+const buildMonths = (count = EXPAND_MONTHS) => {
+  const now = new Date();
+  const out = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    // เดือนถัดไปวันที่ 1 = ขอบบนของช่วง (yfinance ไม่รวมวัน end)
+    const next = new Date(y, m + 1, 1);
+    out.push({
+      key: `${y}-${String(m + 1).padStart(2, "0")}`,
+      label: `${THAI_MONTHS[m]} ${y}`,
+      start: `${y}-${String(m + 1).padStart(2, "0")}-01`,
+      end: `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-01`,
+    });
+  }
+  return out;
+};
+
+/**
+ * ค่าที่ต้องเลื่อนแท่งแต่ละอันเพื่อปิดช่องว่างระหว่างรอบซื้อขาย
+ * แยกออกมาเพราะทั้งกราฟหลักและกราฟเต็มจอต้องใช้สูตรเดียวกัน
+ * ยึดแท่งสุดท้ายเป็นหลัก (shift = 0) ราคาล่าสุดบนกราฟจึงเป็นราคาจริงเสมอ
+ */
+const gapShifts = (history) => {
+  const offsets = [0];
+  for (let i = 1; i < history.length; i++) {
+    offsets[i] = offsets[i - 1] + history[i - 1].close - history[i].open;
+  }
+  const base = offsets[offsets.length - 1];
+  return offsets.map((o) => o - base);
+};
+
+/** แปลงข้อมูลดิบเป็นแท่งเทียนที่เลื่อนปิดช่องว่างแล้ว */
+const toCandles = (history) => {
+  const shifts = gapShifts(history);
+  return history.map((d, i) => {
+    const shift = shifts[i];
+    const adj = (v) => Math.round((v + shift) * 100) / 100;
+    return {
+      ...d,
+      open: adj(d.open), high: adj(d.high), low: adj(d.low), close: adj(d.close),
+      realOpen: d.open, realHigh: d.high, realLow: d.low, realClose: d.close,
+      shift: Math.round(shift * 100) / 100,
+    };
+  });
+};
+
 /** RSI อยู่โซนไหน ใช้เลือกสีป้ายกำกับ */
 const rsiZone = (value) => {
   if (value >= RSI_OVERBOUGHT) return "hot";
@@ -338,6 +396,244 @@ const NewsBoard = ({ items, loading, hasWatchlist }) => {
 };
 
 /**
+ * กราฟเต็มจอ เลือกดูทีละเดือน
+ *
+ * ดึงแท่งรายชั่วโมงของเดือนนั้น (~130-160 แท่ง) แล้ววางบนผืนกว้างกว่าจอ
+ * ผู้ใช้จึงเลื่อนไล่ดูภายในเดือนได้จริง ถ้าเดือนเก่าเกินกว่าที่ yfinance
+ * เก็บแท่งรายชั่วโมงไว้ backend จะถอยไปส่งแท่งรายวันมาแทน
+ */
+const ExpandedChart = ({ symbol, currency, darkMode, onClose }) => {
+  const months = useMemo(() => buildMonths(), []);
+  const [month, setMonth] = useState(months[months.length - 1].key);
+  const [rows, setRows] = useState([]);
+  const [interval, setIntervalUsed] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const scrollRef = useRef(null);
+  const monthBarRef = useRef(null);
+  const stripRef = useRef(null);
+
+  // ปิดด้วย Esc และล็อกไม่ให้หน้าข้างหลังเลื่อนตาม
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+
+  // เลื่อนแถบเดือนไปสุดขวา = เดือนล่าสุด ให้เห็นตั้งแต่เปิด
+  useEffect(() => {
+    if (monthBarRef.current) monthBarRef.current.scrollLeft = monthBarRef.current.scrollWidth;
+  }, []);
+
+  useEffect(() => {
+    const cfg = months.find((m) => m.key === month);
+    if (!cfg || !symbol) return;
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+    axios
+      .get(`${API_URL}/stock/${symbol}/history`, {
+        params: { start: cfg.start, end: cfg.end, interval: "1h" },
+      })
+      .then((res) => {
+        if (cancelled) return;
+        setRows(res.data.history || []);
+        setIntervalUsed(res.data.interval);
+      })
+      .catch(() => {
+        if (!cancelled) { setRows([]); setError("ไม่มีข้อมูลของเดือนนี้"); }
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [symbol, month, months]);
+
+  // ข้อมูลเดือนใหม่ควรเริ่มดูจากต้นเดือน
+  const [scrollable, setScrollable] = useState(false);
+  const [stripW, setStripW] = useState(0);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollLeft = 0;
+    const check = () => {
+      setScrollable(el.scrollWidth > el.clientWidth + 1);
+      // ใช้ความกว้างจริงของแถบ เพื่อตัดสินว่าช่องไหนแคบเกินกว่าจะใส่ป้ายวัน
+      if (stripRef.current) setStripW(stripRef.current.clientWidth);
+    };
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [rows]);
+
+  const candles = useMemo(() => (rows.length ? toCandles(rows) : []), [rows]);
+  const cur = currency === "THB" ? "฿" : "$";
+  const width = Math.max(candles.length * EXPAND_PX_PER_BAR, 600);
+
+  /**
+   * จัดกลุ่มแท่งเป็น "รอบซื้อขาย" เพื่อทำแถบบอกวันด้านบน
+   *
+   * ห้ามจัดกลุ่มด้วยวันที่ตามปฏิทิน เพราะ backend แปลงเป็นเวลาไทยแล้ว
+   * รอบเดียวของตลาดสหรัฐจะคาบเกี่ยวสองวัน (1 ก.ค. 20:30 → 2 ก.ค. 02:30)
+   * จึงดูจากช่องว่างระหว่างแท่งแทน ถ้าห่างผิดปกติแปลว่าขึ้นรอบใหม่
+   */
+  const sessions = useMemo(() => {
+    if (!candles.length) return [];
+    if (interval === "1d") {
+      return candles.map((c, i) => ({ start: i, count: 1, date: c.datetime.slice(0, 10) }));
+    }
+    const times = candles.map((c) => new Date(c.datetime.replace(" ", "T")).getTime());
+    const diffs = [];
+    for (let i = 1; i < times.length; i++) diffs.push(times[i] - times[i - 1]);
+    const sorted = [...diffs].sort((a, b) => a - b);
+    const typical = sorted[Math.floor(sorted.length / 2)] || 3600000;
+
+    const out = [{ start: 0, count: 1, date: candles[0].datetime.slice(0, 10) }];
+    for (let i = 1; i < candles.length; i++) {
+      if (times[i] - times[i - 1] > typical * 1.8) {
+        out.push({ start: i, count: 1, date: candles[i].datetime.slice(0, 10) });
+      } else {
+        out[out.length - 1].count++;
+      }
+    }
+    return out;
+  }, [candles, interval]);
+
+  const shortDate = (iso) => {
+    const [, m, d] = iso.split("-");
+    return `${Number(d)} ${THAI_MONTHS[Number(m) - 1]}`;
+  };
+
+  // เรียงเป็นบรรทัด ไม่ใช่บรรทัดเดียวยาว ๆ ไม่งั้นกล่องกว้างเกือบ 400px จนล้นกรอบที่มองเห็น
+  const ExpandTooltip = ({ active, payload, coordinate }) => {
+    if (!active || !payload?.length) return null;
+    const d = payload[0].payload;
+    const up = d.realClose >= d.realOpen;
+
+    // recharts วางกล่องทางขวาของเคอร์เซอร์เสมอ โดยอิงผืนกราฟทั้งผืน
+    // ชี้แท่งท้าย ๆ หรือชิดขอบขวาของช่องที่มองเห็น กล่องจึงยื่นออกไปจนโดนตัด
+    // ถ้าจะล้นก็พลิกไปอยู่ทางซ้ายของเคอร์เซอร์แทน
+    const el = scrollRef.current;
+    const limit = el
+      ? Math.min(el.scrollWidth, el.scrollLeft + el.clientWidth)
+      : Infinity;
+    const flip = coordinate ? coordinate.x + EXPAND_TIP_W + 20 > limit : false;
+
+    const style = {
+      borderRadius: 10,
+      border: `1px solid ${darkMode ? "#344054" : "#eaecf0"}`,
+      background: darkMode ? "#1d2939" : "#fff",
+      fontSize: 12,
+      padding: "8px 10px",
+      width: EXPAND_TIP_W,
+      transform: flip ? `translateX(-${EXPAND_TIP_W + 24}px)` : "none",
+    };
+    return (
+      <div className="candle-tip" style={style}>
+        <div className="candle-tip-date">{d.datetime}</div>
+        <div className="candle-tip-row"><span>เปิด</span><b>{cur}{d.realOpen}</b></div>
+        <div className="candle-tip-row"><span>สูงสุด</span><b>{cur}{d.realHigh}</b></div>
+        <div className="candle-tip-row"><span>ต่ำสุด</span><b>{cur}{d.realLow}</b></div>
+        <div className="candle-tip-row">
+          <span>ปิด</span><b style={{ color: up ? UP : DOWN }}>{cur}{d.realClose}</b>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="expand-backdrop" onClick={onClose}>
+      <div className="expand-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="expand-head">
+          <div>
+            <h2>{symbol}</h2>
+            <span className="muted small">
+              {loading
+                ? "กำลังโหลด..."
+                : candles.length
+                ? `${candles.length} แท่ง · ${interval === "1d" ? "รายวัน" : "รายชั่วโมง"}`
+                : error || "ไม่มีข้อมูล"}
+            </span>
+          </div>
+          <button className="expand-close" onClick={onClose} aria-label="ปิด">✕</button>
+        </div>
+
+        <div className="month-bar" ref={monthBarRef}>
+          {months.map((m) => (
+            <button
+              key={m.key}
+              className={`month-btn ${m.key === month ? "active" : ""}`}
+              onClick={() => setMonth(m.key)}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+
+        {interval === "1d" && candles.length > 0 && (
+          <p className="expand-note">
+            เดือนนี้เก่าเกินกว่าที่แหล่งข้อมูลเก็บแท่งรายชั่วโมงไว้ จึงแสดงเป็นแท่งรายวันแทน
+          </p>
+        )}
+
+        <div className="expand-scroll" ref={scrollRef}>
+          {candles.length === 0 ? (
+            <p className="muted small" style={{ padding: 24 }}>
+              {loading ? "กำลังโหลด..." : error || "ไม่มีข้อมูลของเดือนนี้"}
+            </p>
+          ) : (
+            // ผืนกว้างกว่าจอ ทำให้ตัวครอบด้านนอกเลื่อนได้จริง
+            <div style={{ width, minWidth: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
+              {/* แถบบอกวัน 1 ช่อง = 1 รอบซื้อขาย กว้างตามสัดส่วนจำนวนแท่งในรอบนั้น */}
+              {/* แบ่งด้วยสัดส่วน flex ไม่ใช่พิกเซลที่คำนวณเอง เพราะความกว้างจริง
+                  อาจกว้างกว่า candles×PX_PER_BAR เมื่อ minWidth:100% ดันให้เต็มกรอบ */}
+              <div
+                className="day-strip"
+                ref={stripRef}
+                style={{ marginLeft: EXPAND_Y_AXIS_W, marginRight: EXPAND_RIGHT_PAD }}
+              >
+                {sessions.map((s) => {
+                  const px = stripW ? (s.count / candles.length) * stripW : 0;
+                  return (
+                    <div key={s.start} className="day-cell" style={{ flex: `${s.count} 0 0` }}>
+                      {/* ช่องแคบเกินไปก็ไม่ต้องใส่ตัวหนังสือ ไม่งั้นทับกันอ่านไม่ออก */}
+                      {px >= 44 ? shortDate(s.date) : ""}
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ flex: 1, minHeight: 0 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={candles} margin={{ top: 8, right: EXPAND_RIGHT_PAD, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="4 4" stroke={darkMode ? "#2a3547" : "#f0f1f5"} vertical={false} />
+                  <XAxis dataKey="datetime" hide />
+                  <YAxis domain={["dataMin", "dataMax"]} tick={{ fontSize: 10, fill: "#98a2b3" }} tickLine={false} axisLine={false} width={EXPAND_Y_AXIS_W} />
+                  <Tooltip
+                    content={<ExpandTooltip />}
+                    cursor={{ fill: darkMode ? "#ffffff10" : "#00000008" }}
+                  />
+                  <Bar dataKey={(d) => [d.low, d.high]} shape={<Candle />} maxBarSize={11} isAnimationActive={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+        </div>
+        {/* บอกให้เลื่อนเฉพาะตอนที่ผืนกว้างเกินกรอบจริง ไม่งั้นเป็นคำแนะนำที่ทำตามไม่ได้ */}
+        <p className="expand-hint">
+          {scrollable
+            ? "เลื่อนกราฟไปทางซ้าย-ขวาเพื่อดูทั้งเดือน · กด Esc เพื่อปิด"
+            : "กด Esc เพื่อปิด"}
+        </p>
+      </div>
+    </div>
+  );
+};
+
+/**
  * ประวัติการทำนายย้อนหลัง 1 เดือน — กราฟเทียบทำนายกับราคาจริง แล้วต่อด้วยตาราง
  * ตัวเลขสรุปบนหัวบอกว่าที่ผ่านมาโมเดลกับแถบพยากรณ์เชื่อได้แค่ไหนสำหรับหุ้นตัวนี้
  */
@@ -490,6 +786,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   const [lastFetch, setLastFetch] = useState(null);
   const [range, setRange] = useState("week");
   const [showEma, setShowEma] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [alertScan, setAlertScan] = useState(null);
   const [showAlerts, setShowAlerts] = useState(false);
   const [showWatchlist, setShowWatchlist] = useState(false);
@@ -760,12 +1057,6 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   const chartData = useMemo(() => {
     if (history.length === 0) return [];
 
-    const offsets = [0];
-    for (let i = 1; i < history.length; i++) {
-      offsets[i] = offsets[i - 1] + history[i - 1].close - history[i].open;
-    }
-    const base = offsets[offsets.length - 1];
-
     // คำนวณ EMA จากราคาปิด "จริง" แล้วค่อยเลื่อนเท่ากับแท่งของวันนั้น
     // ถ้าคำนวณจากราคาที่เลื่อนแล้ว ตัวเลขใน tooltip จะไม่ใช่ราคาจริงอีกต่อไป
     const closes = history.map((d) => d.close);
@@ -774,21 +1065,8 @@ export default function Dashboard({ darkMode, setDarkMode }) {
     );
     const rsi = rsiSeries(closes);
 
-    return history.map((d, i) => {
-      const shift = offsets[i] - base;
-      const adj = (v) => Math.round((v + shift) * 100) / 100;
-      const row = {
-        ...d,
-        open: adj(d.open),
-        high: adj(d.high),
-        low: adj(d.low),
-        close: adj(d.close),
-        realOpen: d.open,
-        realHigh: d.high,
-        realLow: d.low,
-        realClose: d.close,
-        shift: Math.round(shift * 100) / 100,
-      };
+    return toCandles(history).map((row, i) => {
+      const adj = (v) => Math.round((v + row.shift) * 100) / 100;
       for (const p of EMA_PERIODS) {
         const v = emas[p][i];
         row[`ema${p}`] = v == null ? null : adj(v);
@@ -1084,6 +1362,16 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                 </div>
               </div>
             </div>
+            {/* กดที่กราฟเพื่อเปิดมุมมองเต็มจอรายเดือน */}
+            <div
+              className="chart-clickable"
+              onClick={() => setExpanded(true)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setExpanded(true); }}
+              title="กดเพื่อขยายเต็มจอ"
+            >
+              <span className="expand-hint-badge">⤢ กดเพื่อขยาย</span>
             <ResponsiveContainer width="100%" height={380}>
               {/* ComposedChart ไม่ใช่ BarChart เพราะต้องวางเส้น EMA ทับแท่งเทียน */}
               <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -1118,6 +1406,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                 ))}
               </ComposedChart>
             </ResponsiveContainer>
+            </div>
             {/* ===== กราฟ Volume ===== */}
             <div className="volume-label">ปริมาณซื้อขาย</div>
             <ResponsiveContainer width="100%" height={130}>
@@ -1346,6 +1635,15 @@ export default function Dashboard({ darkMode, setDarkMode }) {
           items={news}
           loading={newsLoading}
           hasWatchlist={watchlist.length > 0}
+        />
+      )}
+
+      {expanded && stock && (
+        <ExpandedChart
+          symbol={stock.symbol}
+          currency={stock.currency}
+          darkMode={darkMode}
+          onClose={() => setExpanded(false)}
         />
       )}
 

@@ -1078,3 +1078,151 @@ html:has(.page.dark), body:has(.page.dark) {
 .page.dark .rsi-now.hot { color: #fda29b; }
 .page.dark .rsi-now.cold { color: #6ce9a6; }
 .page.dark .rsi-zone-text { color: #667085; }
+
+/* ===== กราฟหลัก: กดเพื่อขยาย ===== */
+.chart-clickable { position: relative; cursor: zoom-in; }
+
+.expand-hint-badge {
+  position: absolute;
+  top: 4px; right: 8px;
+  z-index: 2;
+  font-size: 11px;
+  color: #667085;
+  background: #f2f4f7;
+  border-radius: 999px;
+  padding: 3px 10px;
+  opacity: 0;
+  transition: opacity .15s;
+  pointer-events: none;
+}
+.chart-clickable:hover .expand-hint-badge,
+.chart-clickable:focus-visible .expand-hint-badge { opacity: 1; }
+.page.dark .expand-hint-badge { background: #344054; color: #d0d5dd; }
+
+/* ===== กราฟเต็มจอรายเดือน ===== */
+.expand-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(16, 24, 40, .55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+/* เต็มพื้นที่ที่มี กราฟจะได้สูงตามจอ ไม่ใช่ล็อกไว้ 440px */
+.expand-panel {
+  width: 100%;
+  max-width: 1800px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 16px;
+  padding: 18px 20px;
+  box-shadow: 0 24px 60px -12px rgba(16, 24, 40, .35);
+  cursor: default;
+}
+.page.dark .expand-panel { background: #1d2939; }
+
+.expand-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.expand-head h2 { margin: 0 0 2px; font-size: 20px; font-weight: 650; }
+
+.expand-close {
+  width: 34px; height: 34px;
+  border: 1px solid #eaecf0;
+  background: #fff;
+  border-radius: 50%;
+  font-size: 15px;
+  color: #667085;
+  cursor: pointer;
+  font-family: inherit;
+  flex: none;
+}
+.expand-close:hover { border-color: #465fff; color: #465fff; }
+.page.dark .expand-close { background: #101828; border-color: #344054; color: #98a2b3; }
+
+/* แถบเลือกเดือน เลื่อนแนวนอนได้เมื่อเดือนเยอะ */
+.month-bar {
+  display: flex;
+  gap: 6px;
+  margin: 14px 0 4px;
+  padding-bottom: 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #d0d5dd transparent;
+}
+.month-bar::-webkit-scrollbar { height: 6px; }
+.month-bar::-webkit-scrollbar-thumb { background: #d0d5dd; border-radius: 999px; }
+.page.dark .month-bar { scrollbar-color: #475467 transparent; }
+.page.dark .month-bar::-webkit-scrollbar-thumb { background: #475467; }
+
+.month-btn {
+  flex: none;
+  padding: 7px 14px;
+  border: 1px solid #eaecf0;
+  background: #fff;
+  border-radius: 999px;
+  font-size: 12.5px;
+  color: #667085;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color .15s, color .15s;
+}
+.month-btn:hover { border-color: #98a2b3; }
+.month-btn.active { border-color: #465fff; color: #465fff; background: #f5f7ff; font-weight: 600; }
+.page.dark .month-btn { background: #101828; border-color: #344054; color: #98a2b3; }
+.page.dark .month-btn.active { background: #1a2036; border-color: #465fff; color: #8ba0ff; }
+
+.expand-note { margin: 4px 0 0; font-size: 12px; color: #B54708; }
+.page.dark .expand-note { color: #F79009; }
+
+/* ตัวครอบที่เลื่อนดูภายในเดือนได้ */
+.expand-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin-top: 8px;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #d0d5dd transparent;
+}
+.expand-scroll::-webkit-scrollbar { height: 8px; }
+.expand-scroll::-webkit-scrollbar-thumb { background: #d0d5dd; border-radius: 999px; }
+.page.dark .expand-scroll { scrollbar-color: #475467 transparent; }
+.page.dark .expand-scroll::-webkit-scrollbar-thumb { background: #475467; }
+
+.expand-hint { margin: 8px 0 0; font-size: 12px; color: #98a2b3; text-align: center; }
+
+@media (max-width: 700px) {
+  .expand-backdrop { padding: 10px; }
+  .expand-panel { padding: 14px; border-radius: 12px; }
+  .expand-head h2 { font-size: 17px; }
+  .month-btn { padding: 6px 11px; font-size: 12px; }
+}
+
+/* ===== แถบบอกวันเหนือกราฟเต็มจอ ===== */
+.day-strip {
+  display: flex;
+  flex: none;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #eaecf0;
+}
+
+.day-cell {
+  flex: none;
+  font-size: 11px;
+  color: #667085;
+  text-align: center;
+  padding: 4px 0;
+  border-left: 1px solid #eaecf0;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.day-cell:first-child { border-left: 0; }
+
+.page.dark .day-strip { border-color: #344054; }
+.page.dark .day-cell { color: #98a2b3; border-color: #344054; }
