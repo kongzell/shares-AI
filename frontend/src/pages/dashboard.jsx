@@ -535,14 +535,20 @@ const ExpandedChart = ({ symbol, currency, darkMode, onClose }) => {
     const d = payload[0].payload;
     const up = d.realClose >= d.realOpen;
 
-    // recharts วางกล่องทางขวาของเคอร์เซอร์เสมอ โดยอิงผืนกราฟทั้งผืน
-    // ชี้แท่งท้าย ๆ หรือชิดขอบขวาของช่องที่มองเห็น กล่องจึงยื่นออกไปจนโดนตัด
-    // ถ้าจะล้นก็พลิกไปอยู่ทางซ้ายของเคอร์เซอร์แทน
+    // recharts พลิกกล่องไปทางซ้ายให้เองอยู่แล้วเมื่อใกล้ "ขอบผืนกราฟ"
+    // แต่มันไม่รู้จักช่องที่ผู้ใช้มองเห็น (ผืนกว้างกว่าจอ แล้วเลื่อนดูทีละส่วน)
+    // จึงพลิกเองเฉพาะกรณีที่จะล้นขอบช่องที่มองเห็น แต่ยังไม่ถึงขอบผืน
+    // ถ้าถึงขอบผืนแล้วต้องปล่อยให้ recharts จัดการ ไม่งั้นพลิกซ้ำสองรอบ
+    // กล่องจะกระเด็นไปไกลจากเคอร์เซอร์จนดูเหมือนอธิบายแท่งอื่น
+    // ความกว้างผืนใช้ตัวแปร width ที่คำนวณจากจำนวนแท่ง ไม่ใช่ scrollWidth จาก DOM
+    // เพราะตอนเพิ่งสลับเดือน DOM ยังเป็นค่าของเดือนก่อนอยู่ เงื่อนไขจะเพี้ยน
     const el = scrollRef.current;
-    const limit = el
-      ? Math.min(el.scrollWidth, el.scrollLeft + el.clientWidth)
-      : Infinity;
-    const flip = coordinate ? coordinate.x + EXPAND_TIP_W + 20 > limit : false;
+    let flip = false;
+    if (coordinate && el) {
+      const canvasRight = Math.max(width, el.clientWidth);
+      const right = coordinate.x + EXPAND_TIP_W + 20;
+      flip = right > el.scrollLeft + el.clientWidth && right <= canvasRight;
+    }
 
     const style = {
       borderRadius: 10,
