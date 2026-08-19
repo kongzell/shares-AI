@@ -562,22 +562,16 @@ html:has(.page.dark), body:has(.page.dark) {
 .backtest-dir.miss { background: #fee4e2; color: #b42318; }
 
 .backtest-row { display: flex; align-items: flex-end; gap: 10px; }
-.backtest-err { margin-left: auto; text-align: right; }
 
 .backtest-label { font-size: 10.5px; color: #98a2b3; margin-bottom: 2px; }
 .backtest-num { font-size: 15px; font-weight: 600; color: #667085; }
 .backtest-num.actual { color: #101828; }
-.backtest-num.good { color: #039855; }
-.backtest-num.bad { color: #d92d20; }
 .backtest-arrow { color: #d0d5dd; font-size: 14px; padding-bottom: 2px; }
 
 /* dark mode */
 .page.dark .backtest { background: #101828; border-color: #344054; }
 .page.dark .backtest-num { color: #98a2b3; }
 .page.dark .backtest-num.actual { color: #f2f4f7; }
-/* ต้องระบุคู่กับ .page.dark ด้วย ไม่งั้นบรรทัดบนที่คลาสเยอะกว่าจะทับสีทิ้ง */
-.page.dark .backtest-num.good { color: #6ce9a6; }
-.page.dark .backtest-num.bad  { color: #fda29b; }
 .page.dark .backtest-dir.ok   { background: #05402c; color: #6ce9a6; }
 .page.dark .backtest-dir.miss { background: #4a1f1d; color: #fda29b; }
 .page.dark .backtest-arrow { color: #475467; }

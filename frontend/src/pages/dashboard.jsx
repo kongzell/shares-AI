@@ -1034,11 +1034,13 @@ export default function Dashboard({ darkMode, setDarkMode }) {
               <div className="backtest">
                 <div className="backtest-head">
                   <span>ผลการคาดคะเนราคาของวันที่ ({prediction.last_close_date})</span>
-                  <span
-                    className={`backtest-dir ${prediction.today_direction_correct ? "ok" : "miss"}`}
-                  >
-                    {prediction.today_direction_correct ? "✓ ทิศทางถูก" : "✕ ทิศทางผิด"}
-                  </span>
+                  {prediction.today_in_band != null && (
+                    <span
+                      className={`backtest-dir ${prediction.today_in_band ? "ok" : "miss"}`}
+                    >
+                      {prediction.today_in_band ? "✓ อยู่ในช่วง" : "✕ หลุดช่วง"}
+                    </span>
+                  )}
                 </div>
 
                 <div className="backtest-row">
@@ -1057,14 +1059,6 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                       {symbolOf(prediction.currency)}{prediction.actual_close_today}
                     </div>
                   </div>
-                  {prediction.today_in_band != null && (
-                    <div className="backtest-err">
-                      <div className="backtest-label">ผล</div>
-                      <div className={`backtest-num ${prediction.today_in_band ? "good" : "bad"}`}>
-                        {prediction.today_in_band ? "อยู่ในช่วง" : "หลุดช่วง"}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
