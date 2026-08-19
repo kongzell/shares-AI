@@ -49,6 +49,8 @@ const PREDICT_REFRESH_MS = 60 * 60 * 1000;
 const NEWS_REFRESH_MS = 10 * 60 * 1000;
 // ความเร็วที่กระดานข่าวเลื่อนเอง ช้าพอให้อ่านเนื้อหาย่อทัน
 const NEWS_SPEED_PX_SEC = 28;
+// ขยับเกินกี่พิกเซลจึงถือว่าตั้งใจลาก ไม่ใช่มือสั่นตอนคลิก
+const DRAG_THRESHOLD_PX = 5;
 
 /**
  * แท่งเทียน 1 แท่ง — recharts ไม่มี candlestick ในตัว จึงวาดเองผ่าน shape ของ Bar
@@ -317,11 +319,16 @@ const NewsBoard = ({ items, loading, hasWatchlist }) => {
 
   // ===== ลากด้วยเมาส์ =====
   // จอสัมผัสปัดได้เองอยู่แล้ว ถ้าดักด้วยจะกลายเป็นเลื่อนสองเท่า จึงรับเฉพาะเมาส์
+  //
+  // ห้าม setPointerCapture ตั้งแต่ตอนกดเมาส์ เพราะตามสเปกของ Pointer Events
+  // ตัวที่จับ pointer ไว้จะรับ event click แทนตัวที่ถูกคลิกจริง ลิงก์ในการ์ดจะตายทันที
+  // จึงจับต่อเมื่อขยับเกินระยะที่ถือว่าเป็นการลากจริงแล้วเท่านั้น
   const onPointerDown = (e) => {
     if (e.pointerType !== "mouse" || e.button !== 0) return;
-    const el = trackRef.current;
-    dragRef.current = { active: true, startX: e.clientX, startScroll: el.scrollLeft, moved: 0 };
-    el.setPointerCapture(e.pointerId);
+    dragRef.current = {
+      active: true, startX: e.clientX,
+      startScroll: trackRef.current.scrollLeft, moved: 0, captured: false,
+    };
   };
 
   const onPointerMove = (e) => {
@@ -329,22 +336,32 @@ const NewsBoard = ({ items, loading, hasWatchlist }) => {
     if (!drag.active) return;
     const dx = e.clientX - drag.startX;
     drag.moved = Math.max(drag.moved, Math.abs(dx));
-    trackRef.current.scrollLeft = drag.startScroll - dx;
+    if (!drag.captured && drag.moved > DRAG_THRESHOLD_PX) {
+      trackRef.current.setPointerCapture(e.pointerId);
+      drag.captured = true;
+    }
+    if (drag.captured) trackRef.current.scrollLeft = drag.startScroll - dx;
   };
 
   const endDrag = (e) => {
-    if (!dragRef.current.active) return;
-    dragRef.current.active = false;
+    const drag = dragRef.current;
+    if (!drag.active) return;
+    drag.active = false;
     const el = trackRef.current;
-    if (el.hasPointerCapture?.(e.pointerId)) el.releasePointerCapture(e.pointerId);
+    if (drag.captured && el.hasPointerCapture?.(e.pointerId)) {
+      el.releasePointerCapture(e.pointerId);
+    }
+    drag.captured = false;
   };
 
   // ลากแล้วปล่อยบนการ์ด เบราว์เซอร์จะนับเป็นคลิกด้วย ต้องกันไม่ให้เปิดลิงก์
+  // ล้าง moved ทุกครั้งไม่ว่าจะกันหรือไม่ ไม่งั้นค่าค้างจะไปบล็อกคลิกครั้งถัดไป
   const onClickCapture = (e) => {
-    if (dragRef.current.moved > 5) {
+    const dragged = dragRef.current.moved > DRAG_THRESHOLD_PX;
+    dragRef.current.moved = 0;
+    if (dragged) {
       e.preventDefault();
       e.stopPropagation();
-      dragRef.current.moved = 0;
     }
   };
 
