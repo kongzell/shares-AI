@@ -344,9 +344,11 @@ const PredictHistory = ({ data, loading, currencyOf, darkMode }) => {
       <div className="history-table-wrap">
         <table className="history-table">
           <thead>
+            {/* ไม่มีคอลัมน์ทิศทาง เพราะ 36% ของแถวจะขึ้น "อยู่ในช่วง" คู่กับ "ผิด"
+                ซึ่งอ่านแล้วขัดกันเอง ตัวเลขรวมดูได้ที่แถบสรุปด้านบนแทน */}
             <tr>
               <th>วันที่</th><th>ช่วงที่ทำนาย ({s.band_level}%)</th><th>ราคาจริง</th>
-              {s.band_coverage != null && <th>ผล</th>}<th>ทิศทาง</th>
+              {s.band_coverage != null && <th>ผล</th>}
             </tr>
           </thead>
           <tbody>
@@ -364,9 +366,6 @@ const PredictHistory = ({ data, loading, currencyOf, darkMode }) => {
                     {r.in_band ? "อยู่ในช่วง" : "หลุดช่วง"}
                   </td>
                 )}
-                <td className={r.direction_correct ? "up" : "down"}>
-                  {r.direction_correct ? "ถูก" : "ผิด"}
-                </td>
               </tr>
             ))}
           </tbody>

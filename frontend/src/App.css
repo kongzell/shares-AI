@@ -575,6 +575,9 @@ html:has(.page.dark), body:has(.page.dark) {
 .page.dark .backtest { background: #101828; border-color: #344054; }
 .page.dark .backtest-num { color: #98a2b3; }
 .page.dark .backtest-num.actual { color: #f2f4f7; }
+/* ต้องระบุคู่กับ .page.dark ด้วย ไม่งั้นบรรทัดบนที่คลาสเยอะกว่าจะทับสีทิ้ง */
+.page.dark .backtest-num.good { color: #6ce9a6; }
+.page.dark .backtest-num.bad  { color: #fda29b; }
 .page.dark .backtest-dir.ok   { background: #05402c; color: #6ce9a6; }
 .page.dark .backtest-dir.miss { background: #4a1f1d; color: #fda29b; }
 .page.dark .backtest-arrow { color: #475467; }
@@ -979,6 +982,9 @@ html:has(.page.dark), body:has(.page.dark) {
 .page.dark .hl.act { color: #f2f4f7; }
 .page.dark .history-table th { background: #1d2939; border-color: #344054; color: #667085; }
 .page.dark .history-table td { border-color: #344054; }
+/* เขียว/แดงของโหมดสว่างเข้มเกินไปบนพื้นมืด ใช้เฉดอ่อนแบบเดียวกับป้ายทิศทาง */
+.page.dark .history-table td.up { color: #6ce9a6; }
+.page.dark .history-table td.down { color: #fda29b; }
 .page.dark .history-table tbody tr:hover { background: #101828; }
 
 /* ===== ประวัติ: จอเล็ก ===== */
