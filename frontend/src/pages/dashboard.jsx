@@ -74,6 +74,42 @@ const Candle = ({ x, y, width, height, payload }) => {
   );
 };
 
+// คาบของเส้น EMA ที่วาดทับกราฟ (คู่มาตรฐานเดียวกับที่ MACD ใช้)
+const EMA_PERIODS = [12, 26];
+// แยกสีตามธีม เพราะสีเดียวจะตัดกับพื้นได้ดีแค่ธีมเดียว
+// วัดแล้ว: ส้มสดบนพื้นขาวได้ 2.35 ส่วนม่วงเข้มบนพื้นมืดได้ 3.25 ทั้งคู่บางเกินไป
+const EMA_COLORS = {
+  light: { 12: "#DC6803", 26: "#7A5AF8" },
+  dark:  { 12: "#F79009", 26: "#B692F6" },
+};
+const emaColor = (period, darkMode) => EMA_COLORS[darkMode ? "dark" : "light"][period];
+
+/**
+ * เส้นค่าเฉลี่ยเคลื่อนที่แบบถ่วงน้ำหนัก
+ * ค่าแรกใช้ค่าเฉลี่ยธรรมดาของ period แรกเป็นตัวตั้งต้นตามวิธีมาตรฐาน
+ * แท่งก่อนหน้านั้นคืน null เพราะยังไม่มีข้อมูลพอ (recharts จะเว้นช่วงให้เอง)
+ */
+const emaSeries = (values, period) => {
+  const k = 2 / (period + 1);
+  const out = [];
+  let prev;
+  for (let i = 0; i < values.length; i++) {
+    if (i < period - 1) {
+      out.push(null);
+      continue;
+    }
+    if (prev === undefined) {
+      let sum = 0;
+      for (let j = 0; j < period; j++) sum += values[j];
+      prev = sum / period;
+    } else {
+      prev = values[i] * k + prev * (1 - k);
+    }
+    out.push(prev);
+  }
+  return out;
+};
+
 /** อายุข่าวเป็นชั่วโมง → ข้อความไทยแบบย่อ */
 const newsAge = (hours) => {
   if (hours < 1) return `${Math.max(1, Math.round(hours * 60))} นาทีที่แล้ว`;
@@ -388,6 +424,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   const [error, setError] = useState("");
   const [lastFetch, setLastFetch] = useState(null);
   const [range, setRange] = useState("week");
+  const [showEma, setShowEma] = useState(true);
   const [alertScan, setAlertScan] = useState(null);
   const [showAlerts, setShowAlerts] = useState(false);
   const [showWatchlist, setShowWatchlist] = useState(false);
@@ -665,10 +702,17 @@ export default function Dashboard({ darkMode, setDarkMode }) {
     }
     const base = offsets[offsets.length - 1];
 
+    // คำนวณ EMA จากราคาปิด "จริง" แล้วค่อยเลื่อนเท่ากับแท่งของวันนั้น
+    // ถ้าคำนวณจากราคาที่เลื่อนแล้ว ตัวเลขใน tooltip จะไม่ใช่ราคาจริงอีกต่อไป
+    const closes = history.map((d) => d.close);
+    const emas = Object.fromEntries(
+      EMA_PERIODS.map((p) => [p, emaSeries(closes, p)])
+    );
+
     return history.map((d, i) => {
       const shift = offsets[i] - base;
       const adj = (v) => Math.round((v + shift) * 100) / 100;
-      return {
+      const row = {
         ...d,
         open: adj(d.open),
         high: adj(d.high),
@@ -680,6 +724,12 @@ export default function Dashboard({ darkMode, setDarkMode }) {
         realClose: d.close,
         shift: Math.round(shift * 100) / 100,
       };
+      for (const p of EMA_PERIODS) {
+        const v = emas[p][i];
+        row[`ema${p}`] = v == null ? null : adj(v);
+        row[`realEma${p}`] = v == null ? null : Math.round(v * 100) / 100;
+      }
+      return row;
     });
   }, [history]);
 
@@ -716,6 +766,19 @@ export default function Dashboard({ darkMode, setDarkMode }) {
           <span>ปิด</span>
           <b style={{ color: up ? UP : DOWN }}>{cur}{d.realClose}</b>
         </div>
+        {showEma && EMA_PERIODS.some((p) => d[`realEma${p}`] != null) && (
+          <>
+            <div className="candle-tip-sep" />
+            {EMA_PERIODS.map((p) =>
+              d[`realEma${p}`] == null ? null : (
+                <div className="candle-tip-row" key={p}>
+                  <span>EMA {p}</span>
+                  <b style={{ color: emaColor(p, darkMode) }}>{cur}{d[`realEma${p}`]}</b>
+                </div>
+              )
+            )}
+          </>
+        )}
         {d.shift !== 0 && (
           <div className="candle-tip-note">
             แท่งถูกเลื่อน {d.shift > 0 ? "+" : ""}{d.shift} เพื่อปิดช่องว่าง
@@ -927,6 +990,18 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                   ))}
                 </div>
 
+                <button
+                  className={`ema-toggle ${showEma ? "on" : ""}`}
+                  onClick={() => setShowEma((v) => !v)}
+                  aria-pressed={showEma}
+                  title="เส้นค่าเฉลี่ยเคลื่อนที่แบบถ่วงน้ำหนัก"
+                >
+                  {EMA_PERIODS.map((p) => (
+                    <span key={p} className="ema-swatch" style={{ background: emaColor(p, darkMode) }} />
+                  ))}
+                  EMA {EMA_PERIODS.join(" / ")}
+                </button>
+
                 <div className="price-now">
                   <div className="big">{symbolOf(stock.currency)}{stock.latest_price}</div>
                   <div className={stock.change >= 0 ? "up" : "down"}>
@@ -936,7 +1011,8 @@ export default function Dashboard({ darkMode, setDarkMode }) {
               </div>
             </div>
             <ResponsiveContainer width="100%" height={380}>
-              <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              {/* ComposedChart ไม่ใช่ BarChart เพราะต้องวางเส้น EMA ทับแท่งเทียน */}
+              <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid
                   strokeDasharray="4 4"
                   stroke={darkMode ? "#2a3547" : "#f0f1f5"}
@@ -955,7 +1031,18 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                   maxBarSize={14}
                   isAnimationActive={false}
                 />
-              </BarChart>
+                {showEma && EMA_PERIODS.map((p) => (
+                  <Line
+                    key={p}
+                    dataKey={`ema${p}`}
+                    stroke={emaColor(p, darkMode)}
+                    strokeWidth={1.6}
+                    dot={false}
+                    isAnimationActive={false}
+                    connectNulls={false}
+                  />
+                ))}
+              </ComposedChart>
             </ResponsiveContainer>
             {/* ===== กราฟ Volume ===== */}
             <div className="volume-label">ปริมาณซื้อขาย</div>

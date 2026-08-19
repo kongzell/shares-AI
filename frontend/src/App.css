@@ -991,3 +991,31 @@ html:has(.page.dark), body:has(.page.dark) {
   .predict-value { font-size: 20px; }
   .predict-note { display: block; margin-left: 0; margin-top: 2px; }
 }
+
+/* ===== ปุ่มเปิด/ปิดเส้น EMA ===== */
+.ema-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 999px;
+  background: #fff;
+  color: #667085;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: .15s;
+}
+.ema-toggle:hover { border-color: #98a2b3; }
+.ema-toggle.on { border-color: #465fff; color: #465fff; background: #f5f7ff; }
+
+.ema-swatch { width: 10px; height: 3px; border-radius: 2px; opacity: .35; }
+.ema-toggle.on .ema-swatch { opacity: 1; }
+
+.candle-tip-sep { height: 1px; background: #eaecf0; margin: 6px 0; }
+
+/* ===== EMA: dark mode ===== */
+.page.dark .ema-toggle { background: #1d2939; border-color: #344054; color: #98a2b3; }
+.page.dark .ema-toggle.on { border-color: #465fff; color: #8ba0ff; background: #1a2036; }
+.page.dark .candle-tip-sep { background: #344054; }
