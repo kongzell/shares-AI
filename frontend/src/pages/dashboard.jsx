@@ -211,6 +211,25 @@ const toCandles = (history) => {
   });
 };
 
+/**
+ * แท่งเทียนพร้อมเส้น EMA — ใช้ร่วมกันทั้งกราฟหลักและกราฟเต็มจอ
+ * EMA คิดจากราคาปิดจริง แล้วเลื่อนเท่ากับแท่งของแถวนั้น เส้นจึงทาบแท่งพอดี
+ * ส่วน realEmaXX เก็บค่าก่อนเลื่อนไว้ให้ tooltip แสดงเป็นราคาจริง
+ */
+const toCandlesWithEma = (history) => {
+  const closes = history.map((d) => d.close);
+  const emas = Object.fromEntries(EMA_PERIODS.map((p) => [p, emaSeries(closes, p)]));
+  return toCandles(history).map((row, i) => {
+    const adj = (v) => Math.round((v + row.shift) * 100) / 100;
+    for (const p of EMA_PERIODS) {
+      const v = emas[p][i];
+      row[`ema${p}`] = v == null ? null : adj(v);
+      row[`realEma${p}`] = v == null ? null : Math.round(v * 100) / 100;
+    }
+    return row;
+  });
+};
+
 /** RSI อยู่โซนไหน ใช้เลือกสีป้ายกำกับ */
 const rsiZone = (value) => {
   if (value >= RSI_OVERBOUGHT) return "hot";
@@ -469,7 +488,8 @@ const ExpandedChart = ({ symbol, currency, darkMode, onClose }) => {
     return () => window.removeEventListener("resize", check);
   }, [rows]);
 
-  const candles = useMemo(() => (rows.length ? toCandles(rows) : []), [rows]);
+  const [showEma, setShowEma] = useState(true);
+  const candles = useMemo(() => (rows.length ? toCandlesWithEma(rows) : []), [rows]);
   const cur = currency === "THB" ? "฿" : "$";
   const width = Math.max(candles.length * EXPAND_PX_PER_BAR, 600);
 
@@ -540,6 +560,19 @@ const ExpandedChart = ({ symbol, currency, darkMode, onClose }) => {
         <div className="candle-tip-row">
           <span>ปิด</span><b style={{ color: up ? UP : DOWN }}>{cur}{d.realClose}</b>
         </div>
+        {showEma && EMA_PERIODS.some((p) => d[`realEma${p}`] != null) && (
+          <>
+            <div className="candle-tip-sep" />
+            {EMA_PERIODS.map((p) =>
+              d[`realEma${p}`] == null ? null : (
+                <div className="candle-tip-row" key={p}>
+                  <span>EMA {p}</span>
+                  <b style={{ color: emaColor(p, darkMode) }}>{cur}{d[`realEma${p}`]}</b>
+                </div>
+              )
+            )}
+          </>
+        )}
       </div>
     );
   };
@@ -558,7 +591,20 @@ const ExpandedChart = ({ symbol, currency, darkMode, onClose }) => {
                 : error || "ไม่มีข้อมูล"}
             </span>
           </div>
-          <button className="expand-close" onClick={onClose} aria-label="ปิด">✕</button>
+          <div className="expand-actions">
+            <button
+              className={`ema-toggle ${showEma ? "on" : ""}`}
+              onClick={() => setShowEma((v) => !v)}
+              aria-pressed={showEma}
+              title="เส้นค่าเฉลี่ยเคลื่อนที่แบบถ่วงน้ำหนัก"
+            >
+              {EMA_PERIODS.map((p) => (
+                <span key={p} className="ema-swatch" style={{ background: emaColor(p, darkMode) }} />
+              ))}
+              EMA {EMA_PERIODS.join(" / ")}
+            </button>
+            <button className="expand-close" onClick={onClose} aria-label="ปิด">✕</button>
+          </div>
         </div>
 
         <div className="month-bar" ref={monthBarRef}>
@@ -616,6 +662,17 @@ const ExpandedChart = ({ symbol, currency, darkMode, onClose }) => {
                     cursor={{ fill: darkMode ? "#ffffff10" : "#00000008" }}
                   />
                   <Bar dataKey={(d) => [d.low, d.high]} shape={<Candle />} maxBarSize={11} isAnimationActive={false} />
+                  {showEma && EMA_PERIODS.map((p) => (
+                    <Line
+                      key={p}
+                      dataKey={`ema${p}`}
+                      stroke={emaColor(p, darkMode)}
+                      strokeWidth={1.6}
+                      dot={false}
+                      isAnimationActive={false}
+                      connectNulls={false}
+                    />
+                  ))}
                 </ComposedChart>
               </ResponsiveContainer>
               </div>
@@ -1057,21 +1114,8 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   const chartData = useMemo(() => {
     if (history.length === 0) return [];
 
-    // คำนวณ EMA จากราคาปิด "จริง" แล้วค่อยเลื่อนเท่ากับแท่งของวันนั้น
-    // ถ้าคำนวณจากราคาที่เลื่อนแล้ว ตัวเลขใน tooltip จะไม่ใช่ราคาจริงอีกต่อไป
-    const closes = history.map((d) => d.close);
-    const emas = Object.fromEntries(
-      EMA_PERIODS.map((p) => [p, emaSeries(closes, p)])
-    );
-    const rsi = rsiSeries(closes);
-
-    return toCandles(history).map((row, i) => {
-      const adj = (v) => Math.round((v + row.shift) * 100) / 100;
-      for (const p of EMA_PERIODS) {
-        const v = emas[p][i];
-        row[`ema${p}`] = v == null ? null : adj(v);
-        row[`realEma${p}`] = v == null ? null : Math.round(v * 100) / 100;
-      }
+    const rsi = rsiSeries(history.map((d) => d.close));
+    return toCandlesWithEma(history).map((row, i) => {
       row.rsi = rsi[i];
       return row;
     });

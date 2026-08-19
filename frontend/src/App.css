@@ -1226,3 +1226,6 @@ html:has(.page.dark), body:has(.page.dark) {
 
 .page.dark .day-strip { border-color: #344054; }
 .page.dark .day-cell { color: #98a2b3; border-color: #344054; }
+
+/* ปุ่มในหัวหน้าต่างเต็มจอ */
+.expand-actions { display: flex; align-items: center; gap: 10px; flex: none; }

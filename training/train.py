@@ -37,7 +37,8 @@ from xgboost import XGBRegressor  # noqa: E402
 
 # ===== ค่าคงที่ ต้องตรงกับที่ backend/routers/stocks.py ใช้ตอนทำนาย =====
 SYMBOLS = ["AAPL", "MSFT", "GOOGL", "TSLA", "NVDA", "COIN", "PLTR", "MARA", "BTC-USD", "DELTA.BK", "KBANK.BK", 
-           "PTT.BK", "AOT.BK", "CPALL.BK", "SCB.BK", "BAM.BK"]
+           "PTT.BK", "AOT.BK", "CPALL.BK", "SCB.BK", "BAM.BK", "NESN.SW", "8306.T", "2317.TW", "BHP.AX", "0941.HK",
+           "O39.SI", "0005.HK", "7203.T", "CBA.AX", "005930.KS", "2330.TW", "INFY.NS", "ALV.DE", "PBR"]
 LOOKBACK = 30                 # ต้องเท่ากับ LOOKBACK ใน stocks.py
 XGB_FEATURES = ["Return", "MA7", "MA30", "Prev_Return"]
 START_DATE = "2022-01-01"
