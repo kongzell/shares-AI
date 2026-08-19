@@ -1020,10 +1020,10 @@ html:has(.page.dark), body:has(.page.dark) {
 .page.dark .ema-toggle.on { border-color: #465fff; color: #8ba0ff; background: #1a2036; }
 .page.dark .candle-tip-sep { background: #344054; }
 
-/* ===== Watchlist: แสดง 8 รายการ เกินกว่านั้นเลื่อนดู ===== */
-/* หนึ่งรายการสูง 35px (ปุ่มชื่อ padding 9+9 + บรรทัด 17) → 8 รายการ = 280px */
+/* ===== Watchlist: แสดง 7 รายการ เกินกว่านั้นเลื่อนดู ===== */
+/* หนึ่งรายการสูง 35px (ปุ่มชื่อ padding 9+9 + บรรทัด 17) → 7 รายการ = 245px */
 .watchlist-list {
-  max-height: 280px;
+  max-height: 245px;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: #d0d5dd transparent;
