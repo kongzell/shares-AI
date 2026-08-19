@@ -691,7 +691,6 @@ export default function Dashboard({ darkMode, setDarkMode }) {
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
-  // รีเฟรชเฉพาะหุ้นที่กำลังดูอยู่ — ไม่แตะผลทำนาย เพื่อไม่ให้รันโมเดลถี่เกินจำเป็น
   const refreshPrice = async (target = symbol) => {
     if (!target.trim()) return;
     try {
