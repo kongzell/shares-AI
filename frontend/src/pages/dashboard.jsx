@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
-  BarChart, Bar, Cell, ComposedChart, Area, Line, ReferenceLine,
+  BarChart, Bar, ComposedChart, Area, Line, ReferenceLine,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import {
@@ -118,6 +118,8 @@ const RSI_OVERBOUGHT = 70;
 const RSI_OVERSOLD = 30;
 // น้ำเงินหลักของแอปตัดกับพื้นมืดได้แค่ 3.04 บางเกินไปสำหรับเส้น จึงใช้เฉดอ่อนกว่าในโหมดมืด
 const RSI_LINE = { light: "#465fff", dark: "#8ba0ff" };
+// แท่งปริมาณซื้อขายเป็นข้อมูลประกอบ ใช้เทาอมน้ำเงินให้ไม่แย่งสายตาจากราคา
+const VOLUME_COLOR = { light: "#667085", dark: "#8ba0ff" };
 
 /**
  * RSI ตามสูตรของ Wilder
@@ -1631,14 +1633,17 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                   itemStyle={{ color: "#465fff" }}
                   cursor={{ fill: darkMode ? "#ffffff10" : "#00000008" }}
                 />
-                <Bar dataKey="volume" opacity={0.55} maxBarSize={60} radius={[3, 3, 0, 0]}>
-                  {history.map((d, i) => (
-                    <Cell
-                      key={i}
-                      fill={i > 0 && d.close >= history[i - 1].close ? "#1D9E75" : "#E24B4A"}
-                    />
-                  ))}
-                </Bar>
+                {/* สีเดียวทั้งแถบ — เดิมระบายเขียว/แดงตาม "ปิดสูงกว่าแท่งก่อน"
+                    ซึ่งเป็นคนละเกณฑ์กับสีแท่งเทียน (ปิดสูงกว่าเปิด) จึงขัดกันเองได้
+                    วัดแล้วช่วง Year ขัดกันถึง 16% ของแท่ง อ่านแล้วสับสนมากกว่ามีประโยชน์ */}
+                <Bar
+                  dataKey="volume"
+                  fill={VOLUME_COLOR[darkMode ? "dark" : "light"]}
+                  opacity={0.55}
+                  maxBarSize={60}
+                  radius={[3, 3, 0, 0]}
+                  isAnimationActive={false}
+                />
               </BarChart>
             </ResponsiveContainer>
 
