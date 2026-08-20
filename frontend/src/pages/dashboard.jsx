@@ -304,6 +304,23 @@ const agoText = (ts) => {
   return mins < 1 ? "เมื่อครู่" : `เมื่อ ${mins} นาทีที่แล้ว`;
 };
 
+/** timestamp ในเครื่อง → "03:10" */
+const clockOf = (ts) =>
+  new Date(ts).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+
+/**
+ * เวลาของแท่งข้อมูลที่ backend ส่งมาเป็น "2026-08-20 02:55"
+ * ถ้าเป็นวันนี้แสดงแค่เวลา ถ้าข้ามวันแล้วค่อยเติมวันที่ให้ไม่สับสน
+ */
+const barTime = (s) => {
+  if (!s) return "-";
+  const [day, time] = s.split(" ");
+  if (!time) return s;
+  const n = new Date();
+  const today = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+  return day === today ? time : `${day.slice(8)}/${day.slice(5, 7)} ${time}`;
+};
+
 /** อายุข่าวเป็นชั่วโมง → ข้อความไทยแบบย่อ */
 const newsAge = (hours) => {
   if (hours < 1) return `${Math.max(1, Math.round(hours * 60))} นาทีที่แล้ว`;
@@ -1100,6 +1117,9 @@ export default function Dashboard({ darkMode, setDarkMode }) {
             message: a.message,
             is_live: r.is_live,
             last_updated: r.last_updated,
+            // เวลาแท่งข้อมูลตอนเจอครั้งแรก = เวลาที่ราคาดิ่งจริง
+            // ต้องยึดของครั้งแรกไว้ ไม่งั้นพอสัญญาณลากยาว last_updated จะขยับตามไปเรื่อย ๆ
+            firstUpdated: old?.firstUpdated ?? r.last_updated,
             firstSeen: old?.firstSeen ?? now,
             lastSeen: now,
           });
@@ -1484,8 +1504,10 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                         )}
                       </div>
                       <div className="alert-msg">{a.message}</div>
+                      {/* แยกเวลา 2 ชนิดให้ชัด: เวลาที่ราคาดิ่งจริง กับเวลาที่ระบบตรวจเจอ
+                          ระยะห่างของสองค่านี้คือดีเลย์ของแหล่งข้อมูล */}
                       <div className="alert-time">
-                        ข้อมูล {a.last_updated}
+                        เกิดเมื่อ {barTime(a.firstUpdated)} · ระบบเจอ {clockOf(a.firstSeen)}
                       </div>
                     </button>
                   ))
@@ -1580,7 +1602,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                 </div>
                 {currentAlert && (
                   <span className={`warn-badge ${currentAlert.is_live ? "live" : ""}`}>
-                    ⚠️ {currentAlert.message}
+                    ⚠️ {currentAlert.message} · เกิดเมื่อ {barTime(currentAlert.firstUpdated)}
                     {!currentAlert.ongoing && ` · ${agoText(currentAlert.lastSeen)}`}
                     {!currentAlert.is_live && " (ข้อมูลไม่สด)"}
                   </span>
