@@ -25,7 +25,6 @@ const QUICK_STOCKS = [
   "BTC-USD" // Bitcoin
 ];
 // แต่ละช่วงใช้ความละเอียดของแท่งต่างกัน ให้จำนวนแท่งพอเหมาะกับความกว้างกราฟ
-// days ของ backend นับเป็น "จำนวนแท่ง" ไม่ใช่วันตามปฏิทิน — 250 แท่งรายวัน = 0.99 ปีพอดี
 const RANGES = {
   today: { label: "Today", days: 1, interval: "5m" },
   week:  { label: "Week",  days: 7, interval: "30m" },
@@ -78,7 +77,7 @@ const Candle = ({ x, y, width, height, payload }) => {
   );
 };
 
-// คาบของเส้น EMA ที่วาดทับกราฟ (คู่มาตรฐานเดียวกับที่ MACD ใช้)
+// คาบของเส้น EMA
 const EMA_PERIODS = [12, 26];
 const EMA_COLORS = {
   light: { 12: "#DC6803", 26: "#7A5AF8" },
@@ -87,7 +86,6 @@ const EMA_COLORS = {
 const emaColor = (period, darkMode) => EMA_COLORS[darkMode ? "dark" : "light"][period];
 
 /**
- * เส้นค่าเฉลี่ยเคลื่อนที่แบบถ่วงน้ำหนัก
  * ค่าแรกใช้ค่าเฉลี่ยธรรมดาของ period แรกเป็นตัวตั้งต้นตามวิธีมาตรฐาน
  * แท่งก่อนหน้านั้นคืน null เพราะยังไม่มีข้อมูลพอ (recharts จะเว้นช่วงให้เอง)
  */
@@ -830,7 +828,7 @@ const PredictHistory = ({ data, loading, currencyOf, darkMode }) => {
   if (loading && !data) {
     return (
       <section className="panel history-panel">
-        <div className="panel-head"><h2>ประวัติการทำนายย้อนหลัง</h2></div>
+        <div className="panel-head"><h2>ประวัติย้อนหลัง</h2></div>
         <p className="muted small">กำลังคำนวณ...</p>
       </section>
     );
@@ -1633,9 +1631,6 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                   itemStyle={{ color: "#465fff" }}
                   cursor={{ fill: darkMode ? "#ffffff10" : "#00000008" }}
                 />
-                {/* สีเดียวทั้งแถบ — เดิมระบายเขียว/แดงตาม "ปิดสูงกว่าแท่งก่อน"
-                    ซึ่งเป็นคนละเกณฑ์กับสีแท่งเทียน (ปิดสูงกว่าเปิด) จึงขัดกันเองได้
-                    วัดแล้วช่วง Year ขัดกันถึง 16% ของแท่ง อ่านแล้วสับสนมากกว่ามีประโยชน์ */}
                 <Bar
                   dataKey="volume"
                   fill={VOLUME_COLOR[darkMode ? "dark" : "light"]}
@@ -1702,7 +1697,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
           <div className="panel predict-panel">
             <div className="predict-head">
               <div>
-                <h3>ผลการพยากรณ์</h3>
+                <h3>ผลการคาดคะเน</h3>
                 <p className="muted small">ราคาปิดวันทำการถัดไป</p>
               </div>
               <div className="model-picker">
@@ -1734,7 +1729,6 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                 </div>
                 <div className={`predict-diff ${prediction.diff_percent >= 0 ? "up" : "down"}`}>
                   {expectText(prediction.diff_percent)}
-                  <span className="predict-note">ช่วง 80% · จาก {prediction.band_basis_days} วันหลังสุด</span>
                 </div>
               </>
             ) : (
