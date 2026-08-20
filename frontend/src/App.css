@@ -634,7 +634,7 @@ html:has(.page.dark), body:has(.page.dark) {
 
 /* ===== Responsive ===== */
 @media (max-width: 900px) {
-  .main-grid { grid-template-columns: 1fr; }
+  .main-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 520px) {
   .stat-grid { grid-template-columns: 1fr; }
@@ -650,20 +650,27 @@ html:has(.page.dark), body:has(.page.dark) {
      ข้อความในปุ่มดาวตัดขึ้นบรรทัดใหม่ และคำอธิบายใต้ชื่อหุ้นยาว 3 บรรทัด */
   .panel-head { flex-direction: column; align-items: stretch; gap: 14px; }
 
-  /* ช่วงเวลากับราคาอยู่แถวเดียวกัน ใช้พื้นที่แนวนอนที่ว่างให้คุ้ม */
+  /* แถวบน = ราคาปัจจุบัน (ซ้าย) + ปุ่ม EMA (ขวา)
+     แถวล่าง = แถบช่วงเวลาเต็มความกว้าง แบ่ง 4 ปุ่มเท่ากัน
+     ใช้ grid เพราะของ 3 ชิ้นรวมกันกว้าง 307px ซึ่งเกินพื้นที่จริง 277px
+     ถ้าปล่อยเป็น flex แถวเดียวข้อความในปุ่ม EMA จะถูกบีบจนตัดเป็น 3 บรรทัด */
   .head-right {
-    flex-direction: row;
-    align-items: center;
+    display: grid;
+    grid-template-columns: auto auto;
     justify-content: space-between;
+    align-items: center;
     width: 100%;
+    gap: 10px;
   }
-  .price-now { text-align: right; }
+  .head-right .price-now { grid-area: 1 / 1; text-align: left; }
+  .head-right .ema-toggle { grid-area: 1 / 2; justify-self: end; }
+  .head-right .segmented { grid-area: 2 / 1 / 2 / -1; width: 100%; }
 
-  /* ปุ่มเลือกช่วงเวลาบีบให้พอดีจอ */
-  .seg-btn { padding: 7px 12px; font-size: 12.5px; }
+  /* ปุ่มเลือกช่วงเวลาแบ่งพื้นที่เท่ากันเต็มแถว */
+  .seg-btn { flex: 1; padding: 11px 4px; font-size: 12.5px; }
 
-  /* ปุ่มดาวไม่ให้ข้อความตัดบรรทัด */
-  .star-btn { white-space: nowrap; }
+  /* ขยายพื้นที่กดของปุ่มเล็ก ๆ ให้นิ้วแตะได้จริง */
+  .star-btn { white-space: nowrap; padding: 11px 13px 11px 11px; }
 
   /* การ์ดหุ้นด้านบน: เล็กลงให้เห็นหลายใบพร้อมกันตอนเลื่อน */
   .stat-card { flex-basis: 150px; padding: 14px; }
@@ -696,7 +703,7 @@ html:has(.page.dark), body:has(.page.dark) {
 /* จอแคบมาก (มือถือรุ่นเล็ก) */
 @media (max-width: 400px) {
   .stat-card { flex-basis: 132px; }
-  .seg-btn { padding: 7px 9px; font-size: 12px; }
+  .seg-btn { padding: 11px 2px; font-size: 12px; }
   .predict-value { font-size: 30px; }
 }
 
@@ -998,6 +1005,7 @@ html:has(.page.dark), body:has(.page.dark) {
 .ema-toggle {
   display: inline-flex;
   align-items: center;
+  white-space: nowrap;   /* กันข้อความตัดบรรทัดจนปุ่มสูงผิดปกติ */
   gap: 6px;
   padding: 6px 12px;
   border: 1px solid #d0d5dd;
@@ -1258,3 +1266,14 @@ html:has(.page.dark), body:has(.page.dark) {
 .hs-note { font-size: 10.5px; color: #98a2b3; margin-top: 1px; }
 .page.dark .hs-value.muted-value { color: #98a2b3; }
 .page.dark .hs-note { color: #667085; }
+
+/* ===== ขนาดพื้นที่กดบนมือถือ =====
+   ต้องอยู่ท้ายไฟล์ เพราะกฎหลักของปุ่มเหล่านี้ถูกประกาศไว้ด้านล่างของไฟล์
+   ถ้าเขียนไว้ในบล็อกมือถือด้านบนจะถูกกฎหลักทับ (specificity เท่ากัน ตัวหลังชนะ) */
+@media (max-width: 700px) {
+  .collapse-btn { padding: 9px 13px; font-size: 12.5px; }
+  .news-arrow { width: 38px; height: 38px; }
+  .month-btn { padding: 9px 13px; }
+  .ema-toggle { padding: 10px 12px; }
+  .expand-close { width: 38px; height: 38px; }
+}
