@@ -20,7 +20,7 @@ export default function Login({ darkMode }) {
       localStorage.setItem("username", res.data.username);
       navigate("/");
     } catch (err) {
-      setError(err.response?.data?.detail || "เข้าสู่ระบบไม่สำเร็จ");
+      setError(err.response?.data?.detail || "Login failed");
     } finally {
       setLoading(false);
     }
@@ -30,11 +30,11 @@ export default function Login({ darkMode }) {
     <div className={`page ${darkMode ? "dark" : ""}`}>
       <div className="login-wrap">
         <form className="login-card" onSubmit={handleSubmit}>
-          <h2>เข้าสู่ระบบ</h2>
-          <p className="muted small">เข้าสู่ระบบเพื่อใช้งาน Watchlist</p>
+          <h2>Login</h2>
+          <p className="muted small">Login to use Watchlist</p>
 
           <label className="field">
-            <span>ชื่อผู้ใช้</span>
+            <span>Username</span>
             <input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -44,7 +44,7 @@ export default function Login({ darkMode }) {
           </label>
 
           <label className="field">
-            <span>รหัสผ่าน</span>
+            <span>Password</span>
             <input
               type="password"
               value={password}
@@ -56,11 +56,11 @@ export default function Login({ darkMode }) {
           {error && <div className="alert">⚠️ {error}</div>}
 
           <button className="login-btn" type="submit" disabled={loading}>
-            {loading ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}
+            {loading ? "Logging in…" : "Login"}
           </button>
 
           <button type="button" className="link-btn" onClick={() => navigate("/")}>
-            ← กลับหน้าหลัก
+            ← Back to Homepage
           </button>
         </form>
       </div>

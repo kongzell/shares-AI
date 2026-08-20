@@ -971,6 +971,8 @@ html:has(.page.dark), body:has(.page.dark) {
 .page.dark .band-wide,
 .page.dark .predict-note { color: #98a2b3; }
 .page.dark .hs-value { color: #f2f4f7; }
+/* ต้องระบุคู่กับ .page.dark ไม่งั้นบรรทัดบนที่คลาสมากกว่าจะทับสีเขียวทิ้ง */
+.page.dark .hs-value.good { color: #6ce9a6; }
 .page.dark .hs-value.warn { color: #F79009; }
 .page.dark .hs-label, .page.dark .history-legend { color: #98a2b3; }
 .page.dark .hl.act { color: #f2f4f7; }
@@ -1220,7 +1222,8 @@ html:has(.page.dark), body:has(.page.dark) {
   padding: 4px 0;
   border-left: 1px solid #eaecf0;
   white-space: nowrap;
-  overflow: hidden;
+  /* ป้ายล้นออกนอกช่องได้ เพราะช่องข้าง ๆ ว่าง (ใส่ป้ายเว้นระยะ) */
+  overflow: visible;
 }
 .day-cell:first-child { border-left: 0; }
 
@@ -1230,7 +1233,7 @@ html:has(.page.dark), body:has(.page.dark) {
 /* ปุ่มในหัวหน้าต่างเต็มจอ */
 .expand-actions { display: flex; align-items: center; gap: 10px; flex: none; }
 
-/* วันที่กำกับใต้ชื่อรายการใน kv (เช่น "ตั้งแต่ 2025-08-19") */
+/* วันที่กำกับใต้ชื่อรายการใน kv */
 .kv-note { display: block; font-size: 10.5px; color: #98a2b3; margin-top: 1px; }
 .page.dark .kv-note { color: #667085; }
 /* .kv b ระบุสีไว้แล้ว ต้องเจาะจงกว่าเดิม ไม่งั้นสีเขียว/แดงจะถูกทับ */
@@ -1238,3 +1241,20 @@ html:has(.page.dark), body:has(.page.dark) {
 .kv b.down { color: #d92d20; }
 .page.dark .kv b.up { color: #6ce9a6; }
 .page.dark .kv b.down { color: #fda29b; }
+
+/* แถวเลือกช่วงในหน้าต่างเต็มจอ: ปุ่มสลับระดับ + แถบช่วงที่เลื่อนได้ */
+.period-row { display: flex; align-items: center; gap: 12px; margin: 14px 0 4px; }
+.level-switch { flex: none; }
+.level-switch .seg-btn { padding: 6px 14px; font-size: 12.5px; }
+.period-row .month-bar { margin: 0; flex: 1; min-width: 0; }
+
+@media (max-width: 700px) {
+  .period-row { flex-direction: column; align-items: stretch; gap: 8px; }
+  .level-switch { align-self: flex-start; }
+}
+
+/* ช่องเกณฑ์เทียบในแถบสรุปประวัติ */
+.hs-value.muted-value { color: #667085; font-weight: 600; }
+.hs-note { font-size: 10.5px; color: #98a2b3; margin-top: 1px; }
+.page.dark .hs-value.muted-value { color: #98a2b3; }
+.page.dark .hs-note { color: #667085; }

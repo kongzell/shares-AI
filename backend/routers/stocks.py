@@ -32,7 +32,7 @@ LOOKBACK = 30
 # แถบสร้างด้วย split conformal: เอา residual จากการย้อนทำนายในอดีตมาหา quantile
 CAL_WINDOW = 120           # จำนวน residual ที่ใช้สร้างแถบ
 MIN_CAL_WINDOW = 40        # ต่ำกว่านี้ quantile แกว่งจนแถบเชื่อไม่ได้ ให้ซ่อนแถบแทน
-HISTORY_DAYS = 21          # 1 เดือน ≈ 21 วันทำการ
+HISTORY_DAYS = 60          # ~3 เดือนทำการ — สั้นกว่านี้ตัวเลขสรุปแกว่งจนอ่านไม่ได้เรื่อง
 BAND_LEVELS = {80: (10, 90), 90: (5, 95)}
 BACKTEST_TTL_SEC = 60 * 60  # แท่งรายวันเปลี่ยนวันละครั้ง ไม่ต้องคำนวณใหม่ทุก request
 
@@ -330,7 +330,9 @@ def make_band(residuals, predicted, level: int):
 @router.get("/predict/history/{symbol}")
 def predict_history(symbol: str, model_name: str = "lstm", days: int = HISTORY_DAYS):
     """ประวัติการทำนายย้อนหลัง พร้อมสรุปว่าที่ผ่านมาแม่นแค่ไหน"""
-    days = max(5, min(days, 60))
+    # เพดาน 100 มาจากข้อมูล 1 ปี (ย้อนทำนายได้ ~220 วัน ลบ CAL_WINDOW 120)
+    # ขอเกินนี้ยังได้ แต่หน้าต่างสร้างช่วงจะแคบลงจนช่วงเริ่มไม่น่าเชื่อถือ
+    days = max(5, min(days, 100))
     data = run_backtest(symbol, model_name)
     if data is None:
         raise HTTPException(status_code=404, detail=f"ไม่พบข้อมูลหุ้น {symbol}")
@@ -355,6 +357,9 @@ def predict_history(symbol: str, model_name: str = "lstm", days: int = HISTORY_D
             "predicted": round(pred, 2),
             "actual": round(act, 2),
             "error_percent": round((pred - act) / act * 100, 2),
+            # ส่งทิศทางที่ทำนายไว้ไปด้วย หน้าเว็บจะได้ไม่ต้องเดาย้อนจากราคาแถวก่อนหน้า
+            "predicted_up": bool(pred >= base),
+            "actual_up": bool(act >= base),
             "direction_correct": bool((pred >= base) == (act >= base)),
         }
         if band:
@@ -363,12 +368,24 @@ def predict_history(symbol: str, model_name: str = "lstm", days: int = HISTORY_D
         rows.append(row)
 
     scored = [r for r in rows if "in_band" in r]
+
+    # เกณฑ์เทียบที่ไม่ใช้โมเดลเลย: ตอบว่า "ขึ้น" ทุกวัน จะถูกเท่ากับจำนวนวันที่ราคาขึ้นจริง
+    # ต้องมีตัวนี้ ไม่งั้นตัวเลข direction_accuracy อ่านแล้วเข้าใจผิดว่าเป็นฝีมือโมเดล
+    # ทั้งที่จริงสะท้อนแค่ว่าหุ้นตัวนั้นขึ้นบ่อยแค่ไหน
+    hits = int(sum(r["direction_correct"] for r in rows))
+    baseline_hits = int(sum(r["actual_up"] for r in rows))
+    accuracy = round(hits / len(rows) * 100, 1)
+    baseline_accuracy = round(baseline_hits / len(rows) * 100, 1)
+
     summary = {
         "count": len(rows),
         "mae_percent": round(float(np.mean([abs(r["error_percent"]) for r in rows])), 2),
-        "direction_correct": int(sum(r["direction_correct"] for r in rows)),
-        "direction_accuracy": round(
-            sum(r["direction_correct"] for r in rows) / len(rows) * 100, 1),
+        "direction_correct": hits,
+        "direction_accuracy": accuracy,
+        "baseline_correct": baseline_hits,
+        "baseline_accuracy": baseline_accuracy,
+        # หน่วยเป็น percentage point (ผลต่างของสองเปอร์เซ็นต์) ไม่ใช่เปอร์เซ็นต์
+        "direction_edge": round(accuracy - baseline_accuracy, 1),
         "band_level": 80,
         "in_band": int(sum(r["in_band"] for r in scored)) if scored else None,
         "band_coverage": round(sum(r["in_band"] for r in scored) / len(scored) * 100, 1)

@@ -80,8 +80,6 @@ const Candle = ({ x, y, width, height, payload }) => {
 
 // คาบของเส้น EMA ที่วาดทับกราฟ (คู่มาตรฐานเดียวกับที่ MACD ใช้)
 const EMA_PERIODS = [12, 26];
-// แยกสีตามธีม เพราะสีเดียวจะตัดกับพื้นได้ดีแค่ธีมเดียว
-// วัดแล้ว: ส้มสดบนพื้นขาวได้ 2.35 ส่วนม่วงเข้มบนพื้นมืดได้ 3.25 ทั้งคู่บางเกินไป
 const EMA_COLORS = {
   light: { 12: "#DC6803", 26: "#7A5AF8" },
   dark:  { 12: "#F79009", 26: "#B692F6" },
@@ -158,7 +156,11 @@ const rsiSeries = (closes, period = RSI_PERIOD) => {
 };
 
 // มุมมองเต็มจอรายเดือน
-const EXPAND_MONTHS = 12;        // จำนวนเดือนย้อนหลังในแถบเลือก
+// เริ่มที่ ม.ค. 2023 ตายตัว ไม่ใช่นับถอยหลัง n เดือน เดือนเก่าสุดจึงไม่เลื่อนตามเวลา
+// yfinance เก็บแท่งรายชั่วโมงไว้ราว 20 เดือน ที่เก่ากว่านั้น backend ถอยไปส่งแท่งรายวันให้เอง
+// หุ้นที่เข้าตลาดทีหลังจะไม่มีข้อมูลเดือนเก่า ๆ หน้าต่างจะขึ้นว่าไม่มีข้อมูลแทน
+const EXPAND_FROM_YEAR = 2023;
+const EXPAND_FROM_MONTH = 1;     // 1 = มกราคม
 const EXPAND_PX_PER_BAR = 13;    // ความกว้างต่อแท่ง ใช้กำหนดว่าต้องเลื่อนไกลแค่ไหน
 const EXPAND_Y_AXIS_W = 62;      // ต้องตรงกับ width ของ YAxis ไม่งั้นแถบวันจะเหลื่อม
 const EXPAND_RIGHT_PAD = 12;     // ต้องตรงกับ margin.right ของกราฟ
@@ -166,14 +168,15 @@ const EXPAND_TIP_W = 150;        // ล็อกความกว้าง tool
 const THAI_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
                      "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
 
-/** รายการเดือนย้อนหลัง ใหม่สุดอยู่ท้าย เพื่อให้เลื่อนไปขวาสุด = เดือนปัจจุบัน */
-const buildMonths = (count = EXPAND_MONTHS) => {
+/** รายการเดือนตั้งแต่เดือนเริ่มต้นจนถึงเดือนปัจจุบัน ใหม่สุดอยู่ท้าย */
+const buildMonths = () => {
   const now = new Date();
+  const endYear = now.getFullYear();
+  const endMonth = now.getMonth();
   const out = [];
-  for (let i = count - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const y = d.getFullYear();
-    const m = d.getMonth();
+  let y = EXPAND_FROM_YEAR;
+  let m = EXPAND_FROM_MONTH - 1;
+  while (y < endYear || (y === endYear && m <= endMonth)) {
     // เดือนถัดไปวันที่ 1 = ขอบบนของช่วง (yfinance ไม่รวมวัน end)
     const next = new Date(y, m + 1, 1);
     out.push({
@@ -182,7 +185,43 @@ const buildMonths = (count = EXPAND_MONTHS) => {
       start: `${y}-${String(m + 1).padStart(2, "0")}-01`,
       end: `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-01`,
     });
+    m += 1;
+    if (m > 11) { m = 0; y += 1; }
   }
+  return out;
+};
+
+/**
+ * รายการรายปี ตั้งแต่ปีเริ่มต้นถึงปีปัจจุบัน บวกตัวเลือก "ทั้งหมด"
+ * ใช้แท่งรายวันเพราะหนึ่งปีมี ~250 วันทำการ ถ้าใช้รายชั่วโมงจะได้ 1,700 แท่ง
+ * ซึ่งเกินที่ yfinance เก็บไว้สำหรับปีเก่า และหนักเกินจำเป็น
+ */
+const buildYears = () => {
+  const now = new Date();
+  const endYear = now.getFullYear();
+  // ขอบบนของช่วง = วันที่ 1 ของเดือนถัดไป (yfinance ไม่รวมวัน end)
+  const next = new Date(endYear, now.getMonth() + 1, 1);
+  const upper = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-01`;
+
+  const out = [];
+  for (let y = EXPAND_FROM_YEAR; y <= endYear; y++) {
+    out.push({
+      key: `y${y}`,
+      label: `${y}`,
+      start: y === EXPAND_FROM_YEAR
+        ? `${y}-${String(EXPAND_FROM_MONTH).padStart(2, "0")}-01`
+        : `${y}-01-01`,
+      end: y === endYear ? upper : `${y + 1}-01-01`,
+      interval: "1d",
+    });
+  }
+  out.push({
+    key: "all",
+    label: "ทั้งหมด",
+    start: `${EXPAND_FROM_YEAR}-${String(EXPAND_FROM_MONTH).padStart(2, "0")}-01`,
+    end: upper,
+    interval: "1d",
+  });
   return out;
 };
 
@@ -232,6 +271,18 @@ const toCandlesWithEma = (history) => {
     }
     return row;
   });
+};
+
+/**
+ * ข้อความบอกทิศทางที่โมเดลคาดไว้ เทียบกับราคาปิดล่าสุด
+ * เขียนเป็นประโยคเพื่อไม่ให้สับสนกับ "เปลี่ยนแปลง Today/Week/..." ซึ่งเป็นของที่เกิดขึ้นแล้ว
+ */
+const expectText = (percent) => {
+  // ปัดเหลือทศนิยมตำแหน่งเดียว — ช่วง 80% กว้างราว 4% การโชว์ 3 ตำแหน่ง
+  // ทำให้ดูเหมือนรู้ละเอียดถึง 0.001% ซึ่งเกินกว่าที่โมเดลบอกได้จริง
+  const rounded = Math.round(Math.abs(percent) * 10) / 10;
+  if (rounded === 0) return "คาดว่าจะทรงตัว";
+  return `คาดว่าจะ${percent > 0 ? "ขึ้น" : "ลง"}ประมาณ ${rounded}%`;
 };
 
 /** RSI อยู่โซนไหน ใช้เลือกสีป้ายกำกับ */
@@ -441,8 +492,14 @@ const NewsBoard = ({ items, loading, hasWatchlist }) => {
  * เก็บแท่งรายชั่วโมงไว้ backend จะถอยไปส่งแท่งรายวันมาแทน
  */
 const ExpandedChart = ({ symbol, currency, darkMode, onClose }) => {
-  const months = useMemo(() => buildMonths(), []);
-  const [month, setMonth] = useState(months[months.length - 1].key);
+  const [level, setLevel] = useState("month");
+  const periods = useMemo(
+    () => (level === "month" ? buildMonths() : buildYears()),
+    [level]
+  );
+  const [periodKey, setPeriodKey] = useState(null);
+  // ถ้าคีย์ที่เลือกไม่มีในระดับปัจจุบัน (เพิ่งสลับรายเดือน/รายปี) ให้ตกไปที่ตัวล่าสุด
+  const cfg = periods.find((p) => p.key === periodKey) || periods[periods.length - 1];
   const [rows, setRows] = useState([]);
   const [interval, setIntervalUsed] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -469,14 +526,13 @@ const ExpandedChart = ({ symbol, currency, darkMode, onClose }) => {
   }, []);
 
   useEffect(() => {
-    const cfg = months.find((m) => m.key === month);
     if (!cfg || !symbol) return;
     let cancelled = false;
     setLoading(true);
     setError("");
     axios
       .get(`${API_URL}/stock/${symbol}/history`, {
-        params: { start: cfg.start, end: cfg.end, interval: "1h" },
+        params: { start: cfg.start, end: cfg.end, interval: cfg.interval || "1h" },
       })
       .then((res) => {
         if (cancelled) return;
@@ -484,11 +540,11 @@ const ExpandedChart = ({ symbol, currency, darkMode, onClose }) => {
         setIntervalUsed(res.data.interval);
       })
       .catch(() => {
-        if (!cancelled) { setRows([]); setError("ไม่มีข้อมูลของเดือนนี้"); }
+        if (!cancelled) { setRows([]); setError("ไม่มีข้อมูลของช่วงนี้"); }
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [symbol, month, months]);
+  }, [symbol, cfg.start, cfg.end, cfg.interval]);
 
   // ข้อมูลเดือนใหม่ควรเริ่มดูจากต้นเดือน
   const [scrollable, setScrollable] = useState(false);
@@ -519,8 +575,26 @@ const ExpandedChart = ({ symbol, currency, darkMode, onClose }) => {
    * รอบเดียวของตลาดสหรัฐจะคาบเกี่ยวสองวัน (1 ก.ค. 20:30 → 2 ก.ค. 02:30)
    * จึงดูจากช่องว่างระหว่างแท่งแทน ถ้าห่างผิดปกติแปลว่าขึ้นรอบใหม่
    */
+  // ช่วงยาวหลายเดือน ต้องจัดกลุ่มเป็นเดือน ไม่งั้นป้ายเดือนเดิมจะซ้ำกันหลายครั้งติด
+  const byMonth = useMemo(() => {
+    if (candles.length < 2) return false;
+    const a = new Date(candles[0].datetime.replace(" ", "T"));
+    const b = new Date(candles[candles.length - 1].datetime.replace(" ", "T"));
+    return (b - a) / 86400000 > 120;
+  }, [candles]);
+
   const sessions = useMemo(() => {
     if (!candles.length) return [];
+    if (byMonth) {
+      const out = [];
+      candles.forEach((c, i) => {
+        const ym = c.datetime.slice(0, 7);
+        const prev = out[out.length - 1];
+        if (prev && prev.ym === ym) prev.count += 1;
+        else out.push({ start: i, count: 1, date: c.datetime.slice(0, 10), ym });
+      });
+      return out;
+    }
     if (interval === "1d") {
       return candles.map((c, i) => ({ start: i, count: 1, date: c.datetime.slice(0, 10) }));
     }
@@ -539,10 +613,18 @@ const ExpandedChart = ({ symbol, currency, darkMode, onClose }) => {
       }
     }
     return out;
-  }, [candles, interval]);
+  }, [candles, interval, byMonth]);
 
+  // ใส่ป้ายทุกกี่ช่อง ให้ระยะห่างระหว่างป้ายอย่างน้อย 44px จะได้ไม่ทับกัน
+  const labelStride = useMemo(() => {
+    if (!stripW || !sessions.length) return 1;
+    return Math.max(1, Math.ceil(44 / (stripW / sessions.length)));
+  }, [stripW, sessions.length]);
+
+  // จัดกลุ่มเป็นเดือนแล้วก็แสดงแค่เดือนกับปี ส่วนช่วงสั้นแสดงเป็นรายวัน
   const shortDate = (iso) => {
-    const [, m, d] = iso.split("-");
+    const [y, m, d] = iso.split("-");
+    if (byMonth) return `${THAI_MONTHS[Number(m) - 1]} ${y}`;
     return `${Number(d)} ${THAI_MONTHS[Number(m) - 1]}`;
   };
 
@@ -632,19 +714,34 @@ const ExpandedChart = ({ symbol, currency, darkMode, onClose }) => {
           </div>
         </div>
 
-        <div className="month-bar" ref={monthBarRef}>
-          {months.map((m) => (
-            <button
-              key={m.key}
-              className={`month-btn ${m.key === month ? "active" : ""}`}
-              onClick={() => setMonth(m.key)}
-            >
-              {m.label}
-            </button>
-          ))}
+        <div className="period-row">
+          <div className="segmented level-switch">
+            {[["month", "รายเดือน"], ["year", "รายปี"]].map(([key, label]) => (
+              <button
+                key={key}
+                className={level === key ? "seg-btn active" : "seg-btn"}
+                onClick={() => { setLevel(key); setPeriodKey(null); }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="month-bar" ref={monthBarRef}>
+            {periods.map((p) => (
+              <button
+                key={p.key}
+                className={`month-btn ${p.key === cfg.key ? "active" : ""}`}
+                onClick={() => setPeriodKey(p.key)}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {interval === "1d" && candles.length > 0 && (
+        {/* เตือนเฉพาะตอนที่ขอรายชั่วโมงแล้วไม่ได้ ส่วนรายปีตั้งใจใช้รายวันอยู่แล้ว */}
+        {cfg.interval !== "1d" && interval === "1d" && candles.length > 0 && (
           <p className="expand-note">
             เดือนนี้เก่าเกินกว่าที่แหล่งข้อมูลเก็บแท่งรายชั่วโมงไว้ จึงแสดงเป็นแท่งรายวันแทน
           </p>
@@ -666,15 +763,13 @@ const ExpandedChart = ({ symbol, currency, darkMode, onClose }) => {
                 ref={stripRef}
                 style={{ marginLeft: EXPAND_Y_AXIS_W, marginRight: EXPAND_RIGHT_PAD }}
               >
-                {sessions.map((s) => {
-                  const px = stripW ? (s.count / candles.length) * stripW : 0;
-                  return (
-                    <div key={s.start} className="day-cell" style={{ flex: `${s.count} 0 0` }}>
-                      {/* ช่องแคบเกินไปก็ไม่ต้องใส่ตัวหนังสือ ไม่งั้นทับกันอ่านไม่ออก */}
-                      {px >= 44 ? shortDate(s.date) : ""}
-                    </div>
-                  );
-                })}
+                {sessions.map((s, i) => (
+                  <div key={s.start} className="day-cell" style={{ flex: `${s.count} 0 0` }}>
+                    {/* ช่องแคบก็ใส่ป้ายเว้นระยะแทนการไม่ใส่เลย ไม่งั้นเดือนที่เป็น
+                        แท่งรายวันจะไม่มีวันกำกับสักช่อง (22 ช่อง = ช่องละ ~24px) */}
+                    {i % labelStride === 0 ? shortDate(s.date) : ""}
+                  </div>
+                ))}
               </div>
               <div style={{ flex: 1, minHeight: 0 }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -733,7 +828,7 @@ const PredictHistory = ({ data, loading, currencyOf, darkMode }) => {
   if (loading && !data) {
     return (
       <section className="panel history-panel">
-        <div className="panel-head"><h2>ประวัติย้อนหลัง 1 เดือน</h2></div>
+        <div className="panel-head"><h2>ประวัติการทำนายย้อนหลัง</h2></div>
         <p className="muted small">กำลังคำนวณ...</p>
       </section>
     );
@@ -750,7 +845,7 @@ const PredictHistory = ({ data, loading, currencyOf, darkMode }) => {
       <div className="panel-head">
         <div>
           <div className="history-title">
-            <h2>ประวัติย้อนหลัง 1 เดือน</h2>
+            <h2>ประวัติการทำนายย้อนหลัง</h2>
             <button
               className="collapse-btn"
               onClick={() => setOpen((v) => !v)}
@@ -771,10 +866,37 @@ const PredictHistory = ({ data, loading, currencyOf, darkMode }) => {
           </div>
           <div>
             <div className="hs-label">ทายทิศทางถูก</div>
-            <div className={`hs-value ${s.direction_accuracy >= 55 ? "good" : ""}`}>
+            <div className="hs-value">
               {s.direction_correct}/{s.count} · {s.direction_accuracy}%
             </div>
           </div>
+
+          {/* ตัวเลขข้างบนสะท้อนว่าหุ้นตัวนั้นขึ้นบ่อยแค่ไหนพอ ๆ กับฝีมือโมเดล
+              จึงต้องมีเกณฑ์เทียบกำกับ ไม่งั้นอ่านแล้วเข้าใจผิดได้ง่าย */}
+          {s.baseline_accuracy != null && (
+            <>
+              <div>
+                <div className="hs-label">ถ้าตอบ “ขึ้น” ทุกวัน</div>
+                <div className="hs-value muted-value">
+                  {s.baseline_correct}/{s.count} · {s.baseline_accuracy}%
+                </div>
+                <div className="hs-note">เกณฑ์เทียบ</div>
+              </div>
+              <div>
+                <div className="hs-label">โมเดลดีกว่าเกณฑ์</div>
+                <div className={`hs-value ${s.direction_edge > 0 ? "good" : s.direction_edge < 0 ? "warn" : ""}`}>
+                  {s.direction_edge > 0 ? "+" : s.direction_edge === 0 ? "±" : ""}
+                  {s.direction_edge} pp
+                </div>
+                <div className="hs-note">
+                  {s.direction_edge > 0 ? "ดีกว่าการเดา"
+                    : s.direction_edge < 0 ? "แย่กว่าการเดา"
+                    : "ไม่ต่างจากการเดา"}
+                </div>
+              </div>
+            </>
+          )}
+
           {s.band_coverage != null && (
             <div>
               <div className="hs-label">อยู่ในแถบ {s.band_level}%</div>
@@ -825,7 +947,8 @@ const PredictHistory = ({ data, loading, currencyOf, darkMode }) => {
                 ซึ่งอ่านแล้วขัดกันเอง ตัวเลขรวมดูได้ที่แถบสรุปด้านบนแทน */}
             <tr>
               <th>วันที่</th><th>ช่วงที่ทำนาย ({s.band_level}%)</th><th>ราคาจริง</th>
-              {s.band_coverage != null && <th>ผล</th>}
+              <th>ทิศทางที่คาด</th>
+              {s.band_coverage != null && <th>ราคาอยู่ในช่วง</th>}
             </tr>
           </thead>
           <tbody>
@@ -838,6 +961,11 @@ const PredictHistory = ({ data, loading, currencyOf, darkMode }) => {
                     : "—"}
                 </td>
                 <td>{cur}{r.actual}</td>
+                {/* บอกทั้งสิ่งที่คาดไว้และผล ไม่ใช่แค่ถูก/ผิดลอย ๆ
+                    จะได้ไม่สับสนกับคอลัมน์ถัดไปที่ตัดสินคนละเรื่อง */}
+                <td className={r.direction_correct ? "up" : "down"}>
+                  {r.predicted_up ? "ขึ้น" : "ลง"} {r.direction_correct ? "✓" : "✕"}
+                </td>
                 {s.band_coverage != null && (
                   <td className={r.in_band ? "up" : "down"}>
                     {r.in_band ? "อยู่ในช่วง" : "หลุดช่วง"}
@@ -1600,14 +1728,14 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                   {symbolOf(prediction.currency)}{prediction.band["80"].high}
                 </div>
                 <div className={`predict-diff ${prediction.diff_percent >= 0 ? "up" : "down"}`}>
-                  {prediction.diff_percent >= 0 ? "▲" : "▼"} {Math.abs(prediction.diff_percent)}%
+                  {expectText(prediction.diff_percent)}
                   <span className="predict-note">ช่วง 80% · จาก {prediction.band_basis_days} วันหลังสุด</span>
                 </div>
               </>
             ) : (
               /* ข้อมูลน้อยเกินกว่าจะสร้างช่วงได้ เหลือบอกได้แค่ทิศทาง */
               <div className={`predict-diff ${prediction.diff_percent >= 0 ? "up" : "down"}`}>
-                {prediction.diff_percent >= 0 ? "▲" : "▼"} {Math.abs(prediction.diff_percent)}%
+                {expectText(prediction.diff_percent)}
                 <span className="predict-note">ข้อมูลไม่พอสร้างช่วง</span>
               </div>
             )}
