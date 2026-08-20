@@ -36,7 +36,13 @@ const UP = "#1D9E75";
 const DOWN = "#E24B4A";
 
 // ความถี่ในการเช็คการทุ่มตลาดของหุ้นใน watchlist
-const ALERT_POLL_MS = 2 * 60 * 1000;
+// ต้องถี่กว่ากรอบตรวจจับที่สั้นที่สุด (1 นาที) ไม่งั้นการทุ่มแบบกระแทกทีเดียวจบ
+// จะหลุดกรอบไปก่อนที่จะถูกเรียกเช็ค
+const ALERT_POLL_MS = 45 * 1000;
+// เก็บการเตือนไว้บนจอนานเท่านี้หลังจากที่เงื่อนไขหมดแล้ว
+// ฝั่ง backend คำนวณสดจากกรอบ 1-5 นาที พอเวลาผ่านไปสัญญาณก็หายเอง
+// ถ้าไม่เก็บไว้ ผู้ใช้ที่ไม่ได้จ้องจออยู่จะไม่มีทางรู้ว่าเคยเกิดอะไรขึ้น
+const ALERT_KEEP_MS = 20 * 60 * 1000;
 // แหล่งข้อมูลปล่อยแท่งใหม่ทุก 1-2 นาที (โดยดีเลย์คงที่ ~30 นาที)
 // ดึงทุก 5 นาทีจึงเกาะติดได้เกือบสุดโดยไม่เปลืองเกินจำเป็น
 const PRICE_REFRESH_MS = 5 * 60 * 1000;
@@ -290,6 +296,12 @@ const rsiZone = (value) => {
   if (value >= RSI_OVERBOUGHT) return "hot";
   if (value <= RSI_OVERSOLD) return "cold";
   return "";
+};
+
+/** เวลาที่เจอสัญญาณล่าสุด → "เมื่อ X นาทีที่แล้ว" */
+const agoText = (ts) => {
+  const mins = Math.round((Date.now() - ts) / 60000);
+  return mins < 1 ? "เมื่อครู่" : `เมื่อ ${mins} นาทีที่แล้ว`;
 };
 
 /** อายุข่าวเป็นชั่วโมง → ข้อความไทยแบบย่อ */
@@ -998,6 +1010,9 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   const [showEma, setShowEma] = useState(true);
   const [expanded, setExpanded] = useState(false);
   const [alertScan, setAlertScan] = useState(null);
+  // การเตือนที่เคยเจอ เก็บไว้ ALERT_KEEP_MS แม้เงื่อนไขจะหมดไปแล้ว
+  // key = สัญลักษณ์ + ข้อความ เพื่อไม่ให้การเตือนคนละแบบของหุ้นตัวเดียวกันทับกัน
+  const [alertMemory, setAlertMemory] = useState(new Map());
   const [showAlerts, setShowAlerts] = useState(false);
   const [showWatchlist, setShowWatchlist] = useState(false);
   const [watchlist, setWatchlist] = useState([]);
@@ -1053,14 +1068,48 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   const fetchAlert = async () => {
     if (!isLoggedIn()) {
       setAlertScan(null);
+      setAlertMemory(new Map());
       return;
     }
     try {
       const res = await getWatchlistAlerts();
       setAlertScan(res.data);
+      rememberAlerts(res.data);
     } catch {
       setAlertScan(null);
     }
+  };
+
+  /**
+   * รวมผลสแกนรอบล่าสุดเข้ากับที่จำไว้ แล้วตัดอันที่เงียบไปนานเกิน ALERT_KEEP_MS
+   * อันที่ยังเจออยู่จะถูกอัปเดต lastSeen ทำให้ค้างบนจอต่อไปเรื่อย ๆ
+   */
+  const rememberAlerts = (scan) => {
+    const now = Date.now();
+    setAlertMemory((prev) => {
+      const next = new Map(prev);
+      (scan?.results || []).forEach((r) => {
+        if (!r.has_anomaly) return;
+        r.alerts.forEach((a) => {
+          const key = `${r.symbol}|${a.message}`;
+          const old = next.get(key);
+          next.set(key, {
+            key,
+            symbol: r.symbol,
+            severity: a.severity,
+            message: a.message,
+            is_live: r.is_live,
+            last_updated: r.last_updated,
+            firstSeen: old?.firstSeen ?? now,
+            lastSeen: now,
+          });
+        });
+      });
+      for (const [k, v] of next) {
+        if (now - v.lastSeen > ALERT_KEEP_MS) next.delete(k);
+      }
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -1243,10 +1292,17 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   // มีหุ้นอย่างน้อยหนึ่งตัวที่ข้อมูลยังสด = ระบบกำลังเฝ้าอยู่จริง
   const anyLive = !!alertScan?.results?.some((r) => r.is_live);
 
+  // การเตือนที่จำไว้ เรียงตัวที่เพิ่งเจอไว้บนสุด
+  // ตัวที่ lastSeen อยู่ในรอบ poll ล่าสุด = ยังเกิดอยู่จริง นอกนั้นคือของที่ผ่านไปแล้ว
+  const keptAlerts = useMemo(() => {
+    const now = Date.now();
+    return [...alertMemory.values()]
+      .map((a) => ({ ...a, ongoing: now - a.lastSeen < ALERT_POLL_MS * 1.5 }))
+      .sort((a, b) => b.lastSeen - a.lastSeen);
+  }, [alertMemory]);
+
   // สัญญาณของหุ้นที่กำลังดูอยู่ (แสดงป้ายเตือนบนกราฟ เฉพาะตัวที่อยู่ใน watchlist)
-  const currentAlert = alertScan?.results?.find(
-    (r) => r.symbol === stock?.symbol && r.has_anomaly
-  );
+  const currentAlert = keptAlerts.find((a) => a.symbol === stock?.symbol);
 
   const formatVolume = (n) => {
     if (!n) return "-";
@@ -1383,8 +1439,8 @@ export default function Dashboard({ darkMode, setDarkMode }) {
               title="แจ้งเตือน"
             >
               🔔
-              {alertScan?.has_anomaly && (
-                <span className="badge">{alertScan.alert_count}</span>
+              {keptAlerts.length > 0 && (
+                <span className="badge">{keptAlerts.length}</span>
               )}
             </button>
 
@@ -1396,7 +1452,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                     <span className={`live-dot ${anyLive ? "on" : ""}`} />
                     {!isLoggedIn()
                       ? "เข้าสู่ระบบเพื่อเฝ้าระวัง Watchlist"
-                      : `Watchlist ${alertScan?.checked ?? 0} ตัว · ตรวจทุก 30 วินาที`}
+                      : `Watchlist ${alertScan?.checked ?? 0} ตัว · ตรวจทุก 45 วินาที · เก็บสัญญาณไว้ 20 นาที`}
                   </div>
                 </div>
 
@@ -1408,30 +1464,31 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                   <div className="alert-empty">
                     ยังไม่มีหุ้นใน Watchlist — กดดาวบนกราฟเพื่อเพิ่ม
                   </div>
-                ) : alertScan?.has_anomaly ? (
-                  alertScan.results
-                    .filter((r) => r.has_anomaly)
-                    .map((r) =>
-                      r.alerts.map((a, i) => (
-                        <button
-                          key={`${r.symbol}-${i}`}
-                          className={`alert-item ${a.severity}`}
-                          onClick={() => { setSymbol(r.symbol); fetchData(r.symbol); }}
-                          title={`ดูกราฟ ${r.symbol}`}
-                        >
-                          <div className="alert-method">
-                            {r.symbol}
-                            {!r.is_live && (
-                              <span className="alert-tag">ข้อมูลไม่สด</span>
-                            )}
-                          </div>
-                          <div className="alert-msg">{a.message}</div>
-                          <div className="alert-time">
-                            ข้อมูล {r.last_updated}
-                          </div>
-                        </button>
-                      ))
-                    )
+                ) : keptAlerts.length > 0 ? (
+                  keptAlerts.map((a) => (
+                    <button
+                      key={a.key}
+                      className={`alert-item ${a.severity}`}
+                      onClick={() => { setSymbol(a.symbol); fetchData(a.symbol); }}
+                      title={`ดูกราฟ ${a.symbol}`}
+                    >
+                      <div className="alert-method">
+                        {a.symbol}
+                        {a.ongoing ? (
+                          <span className="alert-tag now">กำลังเกิดอยู่</span>
+                        ) : (
+                          <span className="alert-tag">{agoText(a.lastSeen)}</span>
+                        )}
+                        {!a.is_live && (
+                          <span className="alert-tag">ข้อมูลไม่สด</span>
+                        )}
+                      </div>
+                      <div className="alert-msg">{a.message}</div>
+                      <div className="alert-time">
+                        ข้อมูล {a.last_updated}
+                      </div>
+                    </button>
+                  ))
                 ) : (
                   <div className="alert-empty">✅ ไม่พบสัญญาณความผิดปกติ</div>
                 )}
@@ -1523,7 +1580,8 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                 </div>
                 {currentAlert && (
                   <span className={`warn-badge ${currentAlert.is_live ? "live" : ""}`}>
-                    ⚠️ {currentAlert.alerts[0].message}
+                    ⚠️ {currentAlert.message}
+                    {!currentAlert.ongoing && ` · ${agoText(currentAlert.lastSeen)}`}
                     {!currentAlert.is_live && " (ข้อมูลไม่สด)"}
                   </span>
                 )}

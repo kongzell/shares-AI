@@ -329,6 +329,9 @@ html:has(.page.dark), body:has(.page.dark) {
   font-weight: 400;
 }
 
+/* สัญญาณที่ยังเกิดอยู่จริง ณ รอบสแกนล่าสุด ต่างจากอันที่ค้างไว้ให้ดูย้อนหลัง */
+.alert-tag.now { background: #fef3f2; color: #d92d20; font-weight: 500; }
+
 .alert-time { margin-top: 4px; font-size: 10.5px; color: #98a2b3; }
 .alert-item.high   { border-left-color: #d92d20; background: #fffbfa; }
 .alert-item.medium { border-left-color: #f79009; background: #fffcf5; }
@@ -421,6 +424,8 @@ html:has(.page.dark), body:has(.page.dark) {
 .page.dark .alert-panel { background: #1d2939; border-color: #344054; }
 .page.dark .alert-head { border-color: #344054; }
 .page.dark .alert-tag { background: #344054; color: #98a2b3; }
+/* ต้องระบุคู่กับ .page.dark ไม่งั้นบรรทัดบนที่คลาสมากกว่าจะทับสีแดงทิ้ง */
+.page.dark .alert-tag.now { background: #4a1f1d; color: #fda29b; }
 .page.dark .alert-item:hover { filter: brightness(1.25); }
 .page.dark .live-dot { background: #475467; }
 .page.dark .live-dot.on { background: #12b76a; }
