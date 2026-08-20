@@ -1391,7 +1391,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
             {showAlerts && (
               <div className="alert-panel">
                 <div className="alert-head">
-                  <div>เฝ้าระวังการทุ่มตลาด</div>
+                  <div>เฝ้าระวังความผิดปกติของตลาด</div>
                   <div className="alert-sub">
                     <span className={`live-dot ${anyLive ? "on" : ""}`} />
                     {!isLoggedIn()
@@ -1433,7 +1433,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                       ))
                     )
                 ) : (
-                  <div className="alert-empty">✅ ไม่พบสัญญาณทุ่มตลาด</div>
+                  <div className="alert-empty">✅ ไม่พบสัญญาณความผิดปกติ</div>
                 )}
               </div>
             )}
@@ -1582,9 +1582,8 @@ export default function Dashboard({ darkMode, setDarkMode }) {
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setExpanded(true); }}
               title="กดเพื่อขยายเต็มจอ"
             >
-              <span className="expand-hint-badge">⤢ กดเพื่อขยาย</span>
+              <span className="expand-hint-badge">⤢</span>
             <ResponsiveContainer width="100%" height={380}>
-              {/* ComposedChart ไม่ใช่ BarChart เพราะต้องวางเส้น EMA ทับแท่งเทียน */}
               <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid
                   strokeDasharray="4 4"
@@ -1777,8 +1776,6 @@ export default function Dashboard({ darkMode, setDarkMode }) {
 
             <div className="kv"><span>ราคาปิดล่าสุด</span><b>{symbolOf(prediction.currency)}{prediction.last_close}</b></div>
 
-            {/* เปลี่ยนตามช่วงที่เลือกบนกราฟ กำกับวันเริ่มไว้เพราะจำนวนแท่งที่ได้จริง
-                อาจสั้นกว่าที่ขอ (หุ้นเข้าใหม่ หรือวันหยุดยาว) */}
             {rangeChange && (
               <div className="kv">
                 <span>

@@ -63,9 +63,6 @@ html:has(.page.dark), body:has(.page.dark) {
 
 
 /* ===== Header ===== */
-.brand { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 600; }
-.logo { font-size: 20px; }
-.sync { font-size: 12px; color: #98a2b3; }
 
 
 
@@ -224,14 +221,6 @@ html:has(.page.dark), body:has(.page.dark) {
 }
 .icon-btn:hover { background: #f9fafb; }
 
-.dot {
-  position: absolute; top: 8px; right: 9px;
-  width: 7px; height: 7px;
-  background: #f79009;
-  border: 2px solid #fff;
-  border-radius: 50%;
-}
-
 .page.dark .muted { color: #98a2b3; }
 .page.dark .ticker { color: #98a2b3; }
 .page.dark .kv span { color: #98a2b3; }
@@ -251,7 +240,6 @@ html:has(.page.dark), body:has(.page.dark) {
 .page.dark .navbar { border-color: #344054; }
 .page.dark .kbd { background: #344054; border-color: #475467; color: #d0d5dd; }
 .page.dark .kv b, .page.dark .stat-price, .page.dark .panel-head h2 { color: #f2f4f7; }
-.page.dark .note { background: #1d2939; }
 .page.dark .navbar,
 .page.dark .stat-scroller { background: #101828; 
   box-shadow: 0 4px 12px -6px rgba(0,0,0,.4); }  
@@ -313,14 +301,6 @@ html:has(.page.dark), body:has(.page.dark) {
 @keyframes live-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(18, 183, 106, .5); }
   50%      { box-shadow: 0 0 0 4px rgba(18, 183, 106, 0); }
-}
-
-.alert-stale {
-  padding: 9px 16px;
-  font-size: 11px;
-  color: #b54708;
-  background: #fffcf5;
-  border-bottom: 1px solid #eaecf0;
 }
 
 .alert-item {
@@ -440,7 +420,6 @@ html:has(.page.dark), body:has(.page.dark) {
 /* dark mode */
 .page.dark .alert-panel { background: #1d2939; border-color: #344054; }
 .page.dark .alert-head { border-color: #344054; }
-.page.dark .alert-stale { background: #2a2417; color: #fdb022; border-color: #344054; }
 .page.dark .alert-tag { background: #344054; color: #98a2b3; }
 .page.dark .alert-item:hover { filter: brightness(1.25); }
 .page.dark .live-dot { background: #475467; }
@@ -625,19 +604,11 @@ html:has(.page.dark), body:has(.page.dark) {
 .kv { display: flex; justify-content: space-between; font-size: 13px; padding: 7px 0; color: #667085; }
 .kv b { color: #101828; font-weight: 500; }
 
-.note {
-  margin-top: 16px; padding: 11px 13px; background: #f9fafb;
-  border-radius: 10px; font-size: 11.5px; color: #667085; line-height: 1.6;
-}
-
 .foot { text-align: center; font-size: 12px; color: #98a2b3; margin-top: 32px; }
 
 /* ===== Responsive ===== */
 @media (max-width: 900px) {
   .main-grid { grid-template-columns: minmax(0, 1fr); }
-}
-@media (max-width: 520px) {
-  .stat-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 700px) {
@@ -941,7 +912,6 @@ html:has(.page.dark), body:has(.page.dark) {
    ช่วงราคายาวกว่าตัวเลขเดี่ยวมาก ต้องลดขนาดลงไม่งั้นล้นการ์ดกว้าง 440px */
 .predict-value { font-size: 26px; line-height: 1.25; }
 .predict-note { font-size: 12px; color: #667085; margin-left: 10px; font-weight: 400; }
-.band-wide { font-size: 12px; color: #667085; margin-top: 6px; }
 
 /* ===== ประวัติการทำนายย้อนหลัง ===== */
 .history-panel { margin-top: 22px; }
@@ -975,7 +945,6 @@ html:has(.page.dark), body:has(.page.dark) {
 .history-table tbody tr:hover { background: #f9fafb; }
 
 /* ===== ประวัติ + แถบพยากรณ์: dark mode ===== */
-.page.dark .band-wide,
 .page.dark .predict-note { color: #98a2b3; }
 .page.dark .hs-value { color: #f2f4f7; }
 /* ต้องระบุคู่กับ .page.dark ไม่งั้นบรรทัดบนที่คลาสมากกว่าจะทับสีเขียวทิ้ง */

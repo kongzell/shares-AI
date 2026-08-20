@@ -38,9 +38,6 @@ export const getWatchlistAlerts = () => api.get("/alert/watchlist");
 // ข่าวภายใน 1 สัปดาห์ เฉพาะหุ้นใน watchlist ของผู้ใช้
 export const getWatchlistNews = () => api.get("/news/watchlist");
 
-// ===== Stock =====
-export const getStock = (symbol) => api.get(`/stock/${symbol}`);
-
 // ประวัติการทำนายย้อนหลัง 1 เดือน พร้อมสรุปว่าที่ผ่านมาแม่นแค่ไหน
 export const getPredictHistory = (symbol, modelName) =>
   api.get(`/predict/history/${symbol}`, { params: { model_name: modelName } });
