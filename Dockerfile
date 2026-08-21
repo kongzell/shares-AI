@@ -28,7 +28,7 @@ COPY --chown=appuser backend/ ./
 
 # ---- ตั้งค่าตอนรัน ----
 # ลดการจองหน่วยความจำของ TensorFlow และปิด log ที่ไม่จำเป็น
-# OMP_NUM_THREADS จำกัดเธรดให้พอดีกับ CPU ที่ Cloud Run จัดให้
+# OMP_NUM_THREADS จำกัดเธรดให้พอดีกับ CPU ที่ Render จัดให้
 ENV TF_CPP_MIN_LOG_LEVEL=2 \
     PYTHONUNBUFFERED=1 \
     OMP_NUM_THREADS=2 \
@@ -36,8 +36,8 @@ ENV TF_CPP_MIN_LOG_LEVEL=2 \
 
 EXPOSE 8080
 
-# Cloud Run ส่งพอร์ตที่ต้องการมาทาง environment variable ชื่อ PORT
+# Render ส่งพอร์ตที่ต้องการมาทาง environment variable ชื่อ PORT
 # จึงต้องใช้ CMD แบบ shell form เพื่อให้ $PORT ถูกแทนค่า
 # (ถ้าใช้ exec form ["uvicorn", ..., "$PORT"] จะได้สตริง "$PORT" ตรง ๆ แล้วพัง)
-# ส่วน exec ข้างหน้าทำให้ uvicorn เป็น process หลัก รับสัญญาณปิดจาก Cloud Run ได้ถูกต้อง
+# ส่วน exec ข้างหน้าทำให้ uvicorn เป็น process หลัก รับสัญญาณปิดจาก Render ได้ถูกต้อง
 CMD exec uvicorn main:app --host 0.0.0.0 --port ${PORT}
