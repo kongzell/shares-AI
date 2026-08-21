@@ -31,7 +31,7 @@ COPY --chown=appuser backend/ ./
 # OMP_NUM_THREADS จำกัดเธรดให้พอดีกับ CPU ที่ Render จัดให้
 ENV TF_CPP_MIN_LOG_LEVEL=2 \
     PYTHONUNBUFFERED=1 \
-    OMP_NUM_THREADS=2 \
+    OMP_NUM_THREADS=1 \
     PORT=8080
 
 EXPOSE 8080
