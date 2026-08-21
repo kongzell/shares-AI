@@ -926,7 +926,7 @@ const PredictHistory = ({ data, loading, currencyOf, darkMode }) => {
 
           {s.band_coverage != null && (
             <div>
-              <div className="hs-label">อยู่ในแถบ {s.band_level}%</div>
+              <div className="hs-label">อยู่ในช่วงราคาที่คากการณ์</div>
               {/* ต่ำกว่าที่โฆษณาไว้มาก = แถบแคบเกินจริงสำหรับหุ้นตัวนี้ */}
               <div className={`hs-value ${s.band_coverage >= s.band_level - 5 ? "good" : "warn"}`}>
                 {s.in_band}/{s.count} · {s.band_coverage}%
@@ -1956,7 +1956,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
 
                 <div className="backtest-row">
                   <div>
-                    <div className="backtest-label">ช่วงที่คาดคะเน (80%)</div>
+                    <div className="backtest-label">ช่วงที่คาดคะเน</div>
                     <div className="backtest-num">
                       {prediction.band_today?.["80"]
                         ? `${symbolOf(prediction.currency)}${prediction.band_today["80"].low} – ${symbolOf(prediction.currency)}${prediction.band_today["80"].high}`

@@ -1,4 +1,4 @@
-# Dockerfile สำหรับ deploy backend ขึ้น Google Cloud Run
+# Dockerfile สำหรับ deploy backend ขึ้น Render
 # build จากรากโปรเจกต์ เพราะต้องใช้ทั้ง backend/ (โค้ด) และ backend/model/ (โมเดล)
 
 FROM python:3.13-slim
