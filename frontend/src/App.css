@@ -66,72 +66,176 @@ html:has(.page.dark), body:has(.page.dark) {
 
 
 
-/* ===== การ์ดหุ้นยอดนิยม ===== */
-/* ===== แถบเลื่อนหุ้นยอดนิยม ===== */
-.stat-scroller {
-  overflow-x: auto;
-  overflow-y: hidden;
-  margin-bottom: 20px;
-  padding-bottom: 8px;
-  scrollbar-width: thin;
-  scrollbar-color: #344054 transparent;
-  box-shadow: 0 4px 12px -6px rgba(16,24,40,.12);
+/* ===== โครงหน้า: เมนูข้าง + เนื้อหา =====
+   เมนูค้างไว้ที่เดิมเสมอ เป้าหมายจึงไม่ขยับ ต่างจากแถบเลื่อนแนวนอนแบบเดิม
+   ที่ต้องลากหาก่อนถึงจะกดได้ */
+.shell {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
 }
+.content { min-width: 0; }
 
-.stat-track {
+.sidebar {
+  position: sticky;
+  top: 76px;
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
   display: flex;
-  gap: 14px;
-  width: max-content;      /* ให้ยาวตามจำนวนการ์ด */
+  flex-direction: column;
+  gap: 20px;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: #d0d5dd transparent;
+}
+.sidebar::-webkit-scrollbar { width: 6px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: #d0d5dd; border-radius: 999px; }
+
+.side-group { display: flex; flex-direction: column; gap: 7px; }
+
+.side-label {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #98a2b3;
+  padding: 0 4px 2px;
+}
+.side-count {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
+  background: #f2f4f7;
+  color: #667085;
+  border-radius: 999px;
+  padding: 1px 6px;
 }
 
-.stat-card {
-  flex: 0 0 200px;         /* ความกว้างคงที่ ไม่ยืด */
+.side-empty {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #98a2b3;
   background: #fff;
-  border: 1px solid #eaecf0;
-  border-radius: 14px;
-  padding: 18px;
+  border: 1px dashed #eaecf0;
+  border-radius: 10px;
+}
+.side-empty.link {
   cursor: pointer;
   text-align: left;
-  transition: .15s;
   font-family: inherit;
+  width: 100%;
+  color: #465fff;
+  border-color: #c7d2fe;
+}
+.side-empty.link:hover { background: #f5f7ff; }
+
+.side-list { display: flex; flex-direction: column; gap: 4px; }
+
+/* ทั้งแถวคือปุ่มเดียว ปุ่มลบซ้อนอยู่ขวาและโผล่เมื่อชี้ */
+.side-row {
+  position: relative;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  transition: .13s;
+}
+.side-row:hover { background: #fff; border-color: #eaecf0; }
+.side-row.active { background: #fff; border-color: #465fff; box-shadow: 0 0 0 2px rgba(70,95,255,.08); }
+
+.side-pick {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 1px 8px;
+  align-items: baseline;
+  background: transparent;
+  border: 0;
+  padding: 8px 10px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  border-radius: 10px;
+}
+.side-sym { font-size: 12.5px; font-weight: 600; color: #344054; letter-spacing: .02em; }
+.side-price {
+  grid-column: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: #101828;
+  font-variant-numeric: tabular-nums;
+}
+.side-price.muted { color: #d0d5dd; font-weight: 400; }
+.side-chg {
+  grid-column: 2;
+  grid-row: 2;
+  font-size: 10.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.side-chg.up { color: #039855; }
+.side-chg.down { color: #d92d20; }
+
+.side-remove {
+  position: absolute;
+  top: 5px; right: 5px;
+  width: 20px; height: 20px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #98a2b3;
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0;
+  transition: .13s;
+}
+.side-row:hover .side-remove { opacity: 1; }
+.side-remove:hover { background: #fef3f2; color: #d92d20; }
+.side-remove:focus-visible { opacity: 1; }
+
+/* ฉากหลังลิ้นชัก ใช้เฉพาะจอแคบ */
+.side-scrim { display: none; }
+
+/* ปุ่ม ☰ ซ่อนบนจอกว้าง เพราะเมนูเปิดค้างอยู่แล้ว */
+.menu-btn { display: none; }
+
+/* ===== dark mode ของเมนูข้าง ===== */
+.page.dark .sidebar { scrollbar-color: #344054 transparent; }
+.page.dark .sidebar::-webkit-scrollbar-thumb { background: #344054; }
+.page.dark .side-label { color: #667085; }
+.page.dark .side-count { background: #1d2939; color: #98a2b3; }
+.page.dark .side-empty { background: #1d2939; border-color: #344054; color: #98a2b3; }
+.page.dark .side-empty.link { color: #8296ff; border-color: #344054; }
+.page.dark .side-empty.link:hover { background: #222f4a; }
+.page.dark .side-row:hover { background: #1d2939; border-color: #344054; }
+.page.dark .side-row.active { background: #1d2939; border-color: #8296ff; }
+.page.dark .side-sym { color: #98a2b3; }
+.page.dark .side-price { color: #f2f4f7; }
+.page.dark .side-price.muted { color: #475467; }
+.page.dark .side-chg.up { color: #6ce9a6; }
+.page.dark .side-chg.down { color: #fda29b; }
+.page.dark .side-remove { color: #667085; }
+.page.dark .side-remove:hover { background: #2b1a19; color: #fda29b; }
+
+/* ===== ปริมาณ + RSI วางคู่กัน ===== */
+.sub-charts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  margin-top: 6px;
 }
 
-/* ===== Scrollbar สวย ๆ ===== */
-.stat-scroller::-webkit-scrollbar { height: 6px; }
-.stat-scroller::-webkit-scrollbar-track { background: transparent; }
-.stat-scroller::-webkit-scrollbar-thumb {
-  background: #d0d5dd;
-  border-radius: 999px;
+/* วางคู่กันเฉพาะจอที่กว้างพอให้แต่ละกราฟยังเกิน 300px
+   ต่ำกว่านั้นแท่งปริมาณจะเบียดกันจนดูไม่ออก และเส้น RSI จะชันเกินจริง */
+@media (min-width: 1500px) {
+  .sub-charts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-.stat-scroller {
-  position: sticky;              /* ← เพิ่ม */
-  top: 68px;                     /* ← เพิ่ม (ความสูงของ navbar) */
-  z-index: 40;                   /* ← เพิ่ม (ต่ำกว่า navbar) */
-  background: #f9fafb;           /* ← เพิ่ม */
-  padding-top: 8px;              /* ← เพิ่ม */
-
-  overflow-x: auto;
-  overflow-y: hidden;
-  margin-bottom: 20px;
-  padding-bottom: 8px;
-}
-.page.dark .stat-scroller::-webkit-scrollbar-thumb { background: #344054; }
-
-.stat-card {
-  background: #fff; border: 1px solid #eaecf0; border-radius: 14px;
-  padding: 16px; cursor: pointer; text-align: left;
-  transition: .15s; font-family: inherit;
-}
-.stat-card:hover { border-color: #c7d2fe; transform: translateY(-2px); }
-.stat-card.active { border-color: #465fff; box-shadow: 0 0 0 3px rgba(70,95,255,.09); }
-
-.stat-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-.ticker { font-size: 14px; font-weight: 600; color: #344054; }
-.stat-price { font-size: 22px; font-weight: 600; }
-
-.pill { font-size: 11px; padding: 3px 8px; border-radius: 999px; font-weight: 500; }
-.pill.up { background: #ecfdf3; color: #039855; }
-.pill.down { background: #fef3f2; color: #d92d20; }
+.sub-chart { min-width: 0; }
 
 .alert {
   background: #fef3f2; color: #b42318; border: 1px solid #fecdca;
@@ -222,7 +326,6 @@ html:has(.page.dark), body:has(.page.dark) {
 .icon-btn:hover { background: #f9fafb; }
 
 .page.dark .muted { color: #98a2b3; }
-.page.dark .ticker { color: #98a2b3; }
 .page.dark .kv span { color: #98a2b3; }
 .page.dark .foot { color: #667085; }
 .page.dark .nav-search input { color: #f2f4f7; }
@@ -233,15 +336,13 @@ html:has(.page.dark), body:has(.page.dark) {
 /* ===== Dark mode ===== */
 .page.dark { background: #101828; color: #f2f4f7; }
 .page.dark .panel,
-.page.dark .stat-card,
 .page.dark .nav-search,
 .page.dark .nav-select,
 .page.dark .icon-btn { background: #1d2939; border-color: #344054; color: #f2f4f7; }
 .page.dark .navbar { border-color: #344054; }
 .page.dark .kbd { background: #344054; border-color: #475467; color: #d0d5dd; }
-.page.dark .kv b, .page.dark .stat-price, .page.dark .panel-head h2 { color: #f2f4f7; }
-.page.dark .navbar,
-.page.dark .stat-scroller { background: #101828; 
+.page.dark .kv b, .page.dark .panel-head h2 { color: #f2f4f7; }
+.page.dark .navbar { background: #101828; 
   box-shadow: 0 4px 12px -6px rgba(0,0,0,.4); }  
 /* dark mode */
 .page.dark .segmented { background: #1d2939; }
@@ -437,20 +538,18 @@ html:has(.page.dark), body:has(.page.dark) {
 .page.dark .warn-badge { background: #4a3410; color: #fdb022; }
 
 /* panel ขวากว้างขึ้น */
+/* กล่องพยากรณ์ยืดหยุ่นได้ตั้งแต่ 340-420px แทนที่จะตรึง 440px
+   เพราะเมนูข้างกินความกว้างไป 254px กราฟจึงเหลือน้อยลงถ้าไม่ยอมให้ฝั่งขวาหด */
 .main-grid {
-  grid-template-columns: 1fr 440px;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
   gap: 22px;
   align-items: start;
   display: grid;
 }
 
 /* ตัวเลขใหญ่ขึ้น */
-.stat-price { font-size: 26px; }
 .price-now .big { font-size: 30px; }
 .predict-value { font-size: 40px; }
-
-/* การ์ดบนสูงขึ้นนิดหน่อย */
-.stat-card { padding: 20px; }
 
 .panel { background: #fff; border: 1px solid #eaecf0; border-radius: 16px; padding: 20px; }
 
@@ -612,12 +711,74 @@ html:has(.page.dark), body:has(.page.dark) {
 .foot { text-align: center; font-size: 12px; color: #98a2b3; margin-top: 32px; }
 
 /* ===== Responsive ===== */
-@media (max-width: 900px) {
+/* เมนูข้างกินความกว้างไป 254px กราฟกับกล่องพยากรณ์จึงต้องแยกบรรทัด
+   เร็วกว่าเดิม ไม่งั้นกราฟจะแคบจนอ่านแท่งเทียนไม่ออก */
+@media (max-width: 1150px) {
   .main-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
+@media (max-width: 900px) {
+  /* ===== เมนูข้างกลายเป็นลิ้นชัก =====
+     ต่ำกว่า 900px ความกว้าง 232px ที่เมนูกินไปทำให้กราฟแคบเกินอ่าน
+     จึงถอดออกจากผังหน้าแล้วเลื่อนเข้ามาทับเมื่อกดปุ่ม ☰ */
+  .shell { grid-template-columns: minmax(0, 1fr); }
+
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 262px;
+    max-height: none;
+    z-index: 120;
+    background: #f9fafb;
+    border-right: 1px solid #eaecf0;
+    padding: 18px 14px;
+    transform: translateX(-100%);
+    transition: transform .22s ease;
+    box-shadow: 0 0 28px -8px rgba(16,24,40,.3);
+  }
+  .sidebar.open { transform: translateX(0); }
+
+  .side-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    background: rgba(16,24,40,.42);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .22s ease;
+  }
+  .side-scrim.show { opacity: 1; pointer-events: auto; }
+
+  /* ปุ่มเปิดลิ้นชัก โผล่เฉพาะตอนที่เมนูไม่ได้เปิดค้าง */
+  .menu-btn {
+    display: flex;
+    align-items: center; justify-content: center;
+    width: 40px; height: 40px;
+    flex: 0 0 auto;
+    border: 1px solid #eaecf0;
+    border-radius: 10px;
+    background: #fff;
+    font-size: 17px;
+    cursor: pointer;
+    font-family: inherit;
+    color: inherit;
+  }
+  .menu-btn:hover { background: #f9fafb; }
+
+  .page.dark .sidebar { background: #101828; border-color: #344054; }
+  .page.dark .menu-btn { background: #1d2939; border-color: #344054; color: #f2f4f7; }
+  .page.dark .menu-btn:hover { background: #222f4a; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar, .side-scrim { transition: none; }
+}
+
 @media (max-width: 700px) {
+  /* ปุ่ม ☰ อยู่แถวบนซ้ายคู่กับปุ่มไอคอน ช่องค้นหาลงไปเต็มแถวล่าง */
   .navbar { flex-wrap: wrap; }
+  .menu-btn { order: 0; }
   .nav-search { max-width: 100%; order: 2; width: 100%; }
   .nav-actions { order: 1; margin-left: auto; }
 
@@ -648,12 +809,6 @@ html:has(.page.dark), body:has(.page.dark) {
   /* ขยายพื้นที่กดของปุ่มเล็ก ๆ ให้นิ้วแตะได้จริง */
   .star-btn { white-space: nowrap; padding: 11px 13px 11px 11px; }
 
-  /* การ์ดหุ้นด้านบน: เล็กลงให้เห็นหลายใบพร้อมกันตอนเลื่อน */
-  .stat-card { flex-basis: 150px; padding: 14px; }
-  .stat-price { font-size: 20px; }
-  .ticker { font-size: 13px; }
-  .stat-head { margin-bottom: 6px; }
-
   /* ลดขนาดตัวเลขใหญ่ให้พอดีจอแคบ */
   .panel { padding: 16px; }
   .price-now .big { font-size: 26px; }
@@ -678,7 +833,6 @@ html:has(.page.dark), body:has(.page.dark) {
 
 /* จอแคบมาก (มือถือรุ่นเล็ก) */
 @media (max-width: 400px) {
-  .stat-card { flex-basis: 132px; }
   .seg-btn { padding: 11px 2px; font-size: 12px; }
   .predict-value { font-size: 30px; }
 }

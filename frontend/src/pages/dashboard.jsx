@@ -1011,6 +1011,95 @@ const PredictHistory = ({ data, loading, currencyOf, darkMode }) => {
   );
 };
 
+/**
+ * เมนูข้างซ้าย — รวมหุ้นทั้งหมดที่กดดูได้ไว้ที่เดียว
+ *
+ * เดิมหุ้นยอดนิยมเป็นแถบเลื่อนแนวนอนด้านบน ส่วน watchlist ซ่อนอยู่ในกล่องพยากรณ์
+ * ต้องกดเปิดถึงจะเห็น ย้ายมารวมกันตรงนี้ทำให้เป้าหมายอยู่ที่เดิมเสมอ
+ * ไม่ต้องลากแถบซ้าย-ขวา และได้ความสูงด้านบนคืนไปให้กราฟ
+ */
+const StockRow = ({ sym, data, active, onPick, onRemove, currencyOf }) => (
+  <div className={`side-row ${active ? "active" : ""}`}>
+    <button className="side-pick" onClick={() => onPick(sym)} title={`ดูกราฟ ${sym}`}>
+      <span className="side-sym">{sym}</span>
+      {data ? (
+        <>
+          <span className="side-price">{currencyOf(data.currency)}{data.latest_price}</span>
+          <span className={`side-chg ${data.change >= 0 ? "up" : "down"}`}>
+            {data.change >= 0 ? "▲" : "▼"} {Math.abs(data.change_percent)}%
+          </span>
+        </>
+      ) : (
+        <span className="side-price muted">—</span>
+      )}
+    </button>
+    {onRemove && (
+      <button className="side-remove" onClick={() => onRemove(sym)} title={`ลบ ${sym} ออกจาก Watchlist`}>
+        ✕
+      </button>
+    )}
+  </div>
+);
+
+const Sidebar = ({
+  open, onClose, watchlist, watchlistData, watchlistLoading,
+  quickData, current, onPick, onRemove, currencyOf, loggedIn, onLogin,
+}) => (
+  <>
+    {/* ฉากหลังสำหรับมือถือ กดที่ไหนก็ปิดลิ้นชัก */}
+    <div className={`side-scrim ${open ? "show" : ""}`} onClick={onClose} />
+
+    <aside className={`sidebar ${open ? "open" : ""}`}>
+      <div className="side-group">
+        <div className="side-label">
+          Watchlist ของฉัน
+          {loggedIn && watchlist.length > 0 && <span className="side-count">{watchlist.length}</span>}
+        </div>
+
+        {!loggedIn ? (
+          <button className="side-empty link" onClick={onLogin}>
+            เข้าสู่ระบบเพื่อใช้ Watchlist
+          </button>
+        ) : watchlistLoading ? (
+          <p className="side-empty">กำลังโหลด…</p>
+        ) : watchlist.length === 0 ? (
+          <p className="side-empty">ยังไม่มีหุ้น — กดดาวบนกราฟเพื่อเพิ่ม</p>
+        ) : (
+          <div className="side-list">
+            {watchlist.map((sym) => (
+              <StockRow
+                key={sym}
+                sym={sym}
+                data={watchlistData[sym]}
+                active={current === sym}
+                onPick={onPick}
+                onRemove={onRemove}
+                currencyOf={currencyOf}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="side-group">
+        <div className="side-label">หุ้นยอดนิยม</div>
+        <div className="side-list">
+          {quickData.map((s) => (
+            <StockRow
+              key={s.symbol}
+              sym={s.symbol}
+              data={s}
+              active={current === s.symbol}
+              onPick={onPick}
+              currencyOf={currencyOf}
+            />
+          ))}
+        </div>
+      </div>
+    </aside>
+  </>
+);
+
 export default function Dashboard({ darkMode, setDarkMode }) {
   const navigate = useNavigate();
   const [symbol, setSymbol] = useState("AAPL");
@@ -1031,9 +1120,12 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   // key = สัญลักษณ์ + ข้อความ เพื่อไม่ให้การเตือนคนละแบบของหุ้นตัวเดียวกันทับกัน
   const [alertMemory, setAlertMemory] = useState(new Map());
   const [showAlerts, setShowAlerts] = useState(false);
-  const [showWatchlist, setShowWatchlist] = useState(false);
   const [watchlist, setWatchlist] = useState([]);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
+  // ราคาล่าสุดของหุ้นใน watchlist เก็บแยกจากรายชื่อ เพราะ backend คืนมาแค่สัญลักษณ์
+  const [watchlistData, setWatchlistData] = useState({});
+  // เมนูข้าง: บนจอกว้างเปิดค้างไว้เสมอ บนมือถือเปิดเป็นลิ้นชักทับหน้า
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [news, setNews] = useState([]);
   const [newsLoading, setNewsLoading] = useState(false);
   const [predictHistory, setPredictHistory] = useState(null);
@@ -1192,11 +1284,36 @@ export default function Dashboard({ darkMode, setDarkMode }) {
     } catch { /* ไม่ต้องทำอะไร */ }
   };
 
+  // ราคาของหุ้นใน watchlist สำหรับแสดงในเมนูข้าง
+  // เก็บเป็น map เพื่อให้เรียงตามลำดับใน watchlist ได้ และตัวที่ดึงไม่สำเร็จก็แค่ไม่มีราคา
+  const fetchWatchlistPrices = async (symbols) => {
+    if (!symbols.length) {
+      setWatchlistData({});
+      return;
+    }
+    const results = await Promise.all(
+      symbols.map((s) =>
+        axios.get(`${API_URL}/stock/${s}`).then((r) => r.data).catch(() => null)
+      )
+    );
+    const map = {};
+    results.forEach((d) => { if (d) map[d.symbol] = d; });
+    setWatchlistData(map);
+  };
+
   useEffect(() => {
     fetchData();
     fetchQuick();
     if (isLoggedIn()) fetchWatchlist();
   }, []);
+
+  // ดึงราคาใหม่เมื่อรายการหุ้นเปลี่ยน และรีเฟรชตามรอบเดียวกับการ์ดหุ้นยอดนิยม
+  useEffect(() => {
+    fetchWatchlistPrices(watchlist);
+    if (!watchlist.length) return;
+    const t = setInterval(() => fetchWatchlistPrices(watchlist), QUICK_REFRESH_MS);
+    return () => clearInterval(t);
+  }, [watchlist.join(",")]);
 
   const fetchWatchlist = async () => {
     setWatchlistLoading(true);
@@ -1208,15 +1325,6 @@ export default function Dashboard({ darkMode, setDarkMode }) {
     } finally {
       setWatchlistLoading(false);
     }
-  };
-
-  const toggleWatchlist = () => {
-    if (!isLoggedIn()) {
-      navigate("/login");
-      return;
-    }
-    if (!showWatchlist) fetchWatchlist();
-    setShowWatchlist((v) => !v);
   };
 
   const handleRemoveWatchlist = async (target) => {
@@ -1432,6 +1540,17 @@ export default function Dashboard({ darkMode, setDarkMode }) {
 
       {/* ===== Header ===== */}
       <header className="navbar">
+        {/* เห็นเฉพาะจอแคบ จอกว้างเมนูข้างเปิดค้างอยู่แล้ว */}
+        <button
+          className="menu-btn"
+          onClick={() => setSidebarOpen((v) => !v)}
+          aria-expanded={sidebarOpen}
+          aria-label="รายการหุ้น"
+          title="รายการหุ้น"
+        >
+          ☰
+        </button>
+
         <div className="nav-search">
           <span className="search-icon">🔍</span>
           <input
@@ -1554,27 +1673,24 @@ export default function Dashboard({ darkMode, setDarkMode }) {
         </div>
       </header>
 
-      {/* ===== แถบหุ้นยอดนิยม (เลื่อนได้) ===== */}
-      <section className="stat-scroller">
-        <div className="stat-track">
-          {quickData.map((s) => (
-            <button
-              key={s.symbol}
-              className={`stat-card ${s.symbol === stock?.symbol ? "active" : ""}`}
-              onClick={() => { setSymbol(s.symbol); fetchData(s.symbol); }}
-            >
-              <div className="stat-head">
-                <span className="ticker">{s.symbol}</span>
-                <span className={`pill ${s.change >= 0 ? "up" : "down"}`}>
-                  {s.change >= 0 ? "▲" : "▼"} {Math.abs(s.change_percent)}%
-                </span>
-              </div>
-              <div className="stat-price">{symbolOf(s.currency)}{s.latest_price}</div>
-            </button>
-          ))}
-        </div>
-      </section>
+      {/* ===== เมนูข้าง + เนื้อหา ===== */}
+      <div className="shell">
+        <Sidebar
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          watchlist={watchlist}
+          watchlistData={watchlistData}
+          watchlistLoading={watchlistLoading}
+          quickData={quickData}
+          current={stock?.symbol}
+          currencyOf={symbolOf}
+          loggedIn={isLoggedIn()}
+          onLogin={() => navigate("/login")}
+          onPick={(sym) => { setSymbol(sym); fetchData(sym); setSidebarOpen(false); }}
+          onRemove={handleRemoveWatchlist}
+        />
 
+        <div className="content">
       {error && <div className="alert">⚠️ {error}</div>}
 
       {/* ===== เนื้อหาหลัก ===== */}
@@ -1697,6 +1813,10 @@ export default function Dashboard({ darkMode, setDarkMode }) {
               </ComposedChart>
             </ResponsiveContainer>
             </div>
+            {/* ปริมาณกับ RSI วางคู่กัน ประหยัดความสูงไปหนึ่งช่วงเต็ม
+                จอแคบจะยุบกลับเป็นเรียงบน-ล่างเองด้วย CSS */}
+            <div className="sub-charts">
+            <div className="sub-chart">
             {/* ===== กราฟ Volume ===== */}
             <div className="volume-label">ปริมาณซื้อขาย</div>
             <ResponsiveContainer width="100%" height={130}>
@@ -1720,7 +1840,9 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                 />
               </BarChart>
             </ResponsiveContainer>
+            </div>
 
+            <div className="sub-chart">
             {/* ===== กราฟ RSI ===== */}
             <div className="rsi-head">
               <span className="volume-label">RSI ({RSI_PERIOD})</span>
@@ -1770,6 +1892,8 @@ export default function Dashboard({ darkMode, setDarkMode }) {
                 />
               </ComposedChart>
             </ResponsiveContainer>
+            </div>
+            </div>
           </div>
 
           {/* ผลทำนาย */}
@@ -1884,43 +2008,6 @@ export default function Dashboard({ darkMode, setDarkMode }) {
               </div>
             )}
 
-            <div className="divider" />
-
-            <button className="nav-select" onClick={toggleWatchlist}>
-              ⭐ Watchlist
-            </button>
-
-            {showWatchlist && (
-              <div className="watchlist-list">
-                {watchlistLoading ? (
-                  <p className="muted small">กำลังโหลด...</p>
-                ) : watchlist.length === 0 ? (
-                  <p className="muted small">ยังไม่มีหุ้นใน Watchlist</p>
-                ) : (
-                  watchlist.map((sym) => (
-                    <div
-                      key={sym}
-                      className={`wl-item ${stock?.symbol === sym ? "active" : ""}`}
-                    >
-                      <button
-                        className="wl-name"
-                        title={`ดูกราฟ ${sym}`}
-                        onClick={() => { setSymbol(sym); fetchData(sym); }}
-                      >
-                        {sym}
-                      </button>
-                      <button
-                        className="wl-remove"
-                        title={`ลบ ${sym} ออกจาก Watchlist`}
-                        onClick={() => handleRemoveWatchlist(sym)}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -1939,6 +2026,8 @@ export default function Dashboard({ darkMode, setDarkMode }) {
           hasWatchlist={watchlist.length > 0}
         />
       )}
+        </div>
+      </div>
 
       {expanded && stock && (
         <ExpandedChart
