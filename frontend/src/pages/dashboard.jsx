@@ -1360,7 +1360,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   const handleLogout = () => {
     logout();
     setShowUser(false);
-    setShowWatchlist(false);
+    setSidebarOpen(false);
     setWatchlist([]);
     navigate("/login");
   };
