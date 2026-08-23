@@ -1,9 +1,9 @@
 {
-  "trained_at": "2026-08-17",
+  "trained_at": "2026-08-23",
   "data_start": "2022-01-01",
-  "data_end": "2026-08-18",
+  "data_end": "2026-08-24",
   "split_mode": "by-time",
-  "split_cutoff": "2025-09-22",
+  "split_cutoff": "2025-09-29",
   "symbols": [
     "AAPL",
     "MSFT",
@@ -13,26 +13,47 @@
     "COIN",
     "PLTR",
     "MARA",
-    "BTC-USD"
+    "BTC-USD",
+    "DELTA.BK",
+    "KBANK.BK",
+    "PTT.BK",
+    "AOT.BK",
+    "CPALL.BK",
+    "SCB.BK",
+    "BAM.BK",
+    "NESN.SW",
+    "8306.T",
+    "2317.TW",
+    "BHP.AX",
+    "0941.HK",
+    "O39.SI",
+    "0005.HK",
+    "7203.T",
+    "CBA.AX",
+    "005930.KS",
+    "2330.TW",
+    "INFY.NS",
+    "ALV.DE",
+    "PBR"
   ],
   "lookback": 30,
   "seed": 42,
   "metrics": {
     "lstm": {
-      "mae_percent": 2.200884750520816,
-      "direction_accuracy": 48.90032756200281
+      "mae_percent": 1.6749372977220747,
+      "direction_accuracy": 54.47202232339551
     },
     "gru": {
-      "mae_percent": 2.2089904818980663,
-      "direction_accuracy": 49.04071127749181
+      "mae_percent": 1.6695790037434668,
+      "direction_accuracy": 54.57482743427816
     },
     "tcn": {
-      "mae_percent": 2.426899962850169,
-      "direction_accuracy": 49.55545156761816
+      "mae_percent": 1.6951585142135226,
+      "direction_accuracy": 54.91261565574974
     },
     "xgboost": {
-      "mae_percent": 2.253079494594366,
-      "direction_accuracy": 50.44413277232351
+      "mae_percent": 1.670677520644079,
+      "direction_accuracy": 54.03024519160182
     }
   }
 }
